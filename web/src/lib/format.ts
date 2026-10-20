@@ -2,6 +2,9 @@ import type { Lead } from './types'
 
 export const nf = new Intl.NumberFormat('pt-BR')
 
+// 1.250.000 -> "1,3 mi" · 350.000 -> "350 mil"
+export const nfCompacto = new Intl.NumberFormat('pt-BR', { notation: 'compact', maximumFractionDigits: 1 })
+
 export function urlDe(site: string) {
   return /^https?:\/\//.test(site) ? site : `https://${site}`
 }

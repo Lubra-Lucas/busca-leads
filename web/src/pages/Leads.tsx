@@ -5,7 +5,7 @@ import { Briefcase, ChevronLeft, ChevronRight, Download, Mail, MessageCircle, Ph
 import LeadDrawer from '../components/LeadDrawer'
 import { useData } from '../lib/data'
 import { STATUS, temContato, type LeadTipo } from '../lib/types'
-import { baixarCsv, nf, scoreTom } from '../lib/format'
+import { baixarCsv, nf, nfCompacto, scoreTom } from '../lib/format'
 
 const POR_PAGINA = 50
 
@@ -47,6 +47,8 @@ export default function Leads() {
   )
   const segsVisiveis = segmentos.filter((s) => !f.tipo || s.tipo === f.tipo)
   const nomeSeg = (id: string) => segmentos.find((s) => s.id === id)?.nome ?? id
+  // filtrando influenciadoras, a coluna de segmento seria repetida: mostra seguidores no lugar
+  const verSeguidores = f.segmento === 'influenciadora'
 
   const filtrados = useMemo(() => {
     const q = f.q.trim().toLowerCase()
@@ -150,7 +152,7 @@ export default function Leads() {
             <thead>
               <tr className="border-b border-white/10 text-left text-xs text-ink-muted">
                 <th className="px-4 py-3 font-medium">Nome</th>
-                <th className="px-4 py-3 font-medium">Segmento</th>
+                <th className={`px-4 py-3 font-medium ${verSeguidores ? 'text-right' : ''}`}>{verSeguidores ? 'Seguidores' : 'Segmento'}</th>
                 <th className="hidden px-4 py-3 font-medium md:table-cell">Local</th>
                 <th className="px-4 py-3 font-medium">Contato</th>
                 <th className="hidden px-4 py-3 font-medium sm:table-cell">Status</th>
@@ -167,7 +169,20 @@ export default function Leads() {
                       <div className="font-medium">{l.nome}</div>
                       <div className="text-xs text-ink-muted">{l.subsegmento ?? (l.tipo === 'cliente' ? 'Cliente' : 'Fornecedor')}</div>
                     </td>
-                    <td className="px-4 py-3 text-ink-soft">{nomeSeg(l.segmento_id)}</td>
+                    {verSeguidores ? (
+                      <td className="tabular px-4 py-3 text-right" title={l.seguidores ? nf.format(l.seguidores) : undefined}>
+                        {l.seguidores ? (
+                          <>
+                            <span className="font-medium">{nfCompacto.format(l.seguidores)}</span>
+                            {(l.extras?.plataforma as string | undefined) && (
+                              <span className="ml-1.5 text-xs text-ink-muted">{String(l.extras.plataforma)}</span>
+                            )}
+                          </>
+                        ) : <span className="text-ink-muted">—</span>}
+                      </td>
+                    ) : (
+                      <td className="px-4 py-3 text-ink-soft">{nomeSeg(l.segmento_id)}</td>
+                    )}
                     <td className="hidden px-4 py-3 text-ink-soft md:table-cell">
                       {[l.cidade, l.uf].filter(Boolean).join(' / ') || <span className="text-ink-muted">—</span>}
                     </td>
