@@ -60,6 +60,17 @@ Fontes: `Leads_atualizado.xlsx` (influenciadoras + monitoramento de e-mails) e `
 - **Influenciadoras:** 40 + contato (e-mail 25, telefone 20, assessoria 15, link na bio 10) + avaliação (Target +15, Não target −20) + seguidores (100 mil–1 milhão +10, 30–100 mil +5).
 - **Lead que já existia no banco:** fica com o maior valor entre o score antigo e o da planilha.
 
+## Enriquecimento pelos sites das marcas (20/10/2026)
+Scripts: `scripts/enriquecer_sites.py` (leitura simples) e `scripts/renderizar_sites.mjs` (navegador, para lojas montadas por JavaScript).
+
+- **O que foi visitado:** 314 leads (marcas de beleza, de moda e fornecedores) com site e sem nenhum contato. Em cada site, a página inicial e até 4 páginas de contato. Só o que está publicado pela própria empresa, sem formulários.
+- **Antes e depois:** marcas de beleza com contato direto passaram de 3 para 152, e marcas de moda de 2 para 77.
+- **Escolha do e-mail:** prioriza o domínio da própria marca e o tipo comercial/parcerias/B2B, depois contato e SAC. Placeholders de template (`your@email`, `@sualoja`) são descartados.
+- **Instagram:** só entra o @ que lembra o domínio, para não pegar o de parceiros ou da agência que fez o site.
+- **Score:** recalculado só nas reservas, onde dependia do contato. Os TOP mantêm o Garnet Lead Score da planilha.
+- **Rastreio:** cada lead guarda em `extras.enriquecimento` a data, as páginas visitadas e todos os e-mails e telefones achados. A ficha no site mostra de onde veio o contato.
+- **O que ficou sem contato:** 54 sites não abriram nem pelo navegador. Os demais não publicam e-mail ou telefone. Para esses, o caminho é o LinkedIn do decisor ou o Apollo.
+
 ## Próximos passos (fase 1, continuação)
 1. Enriquecer os leads com score 80+: Instagram, contato comercial e e-mail (Apollo/Clay cobram créditos, então confirmar orçamento antes).
 2. Onda 2: microinfluenciadoras de SP (10k–300k seguidores), que são o público mais provável a lançar uma primeira linha com lote mínimo baixo.

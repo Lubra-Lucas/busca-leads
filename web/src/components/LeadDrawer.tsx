@@ -154,6 +154,7 @@ function Ficha({ lead, onClose }: { lead: Lead; onClose: () => void }) {
       <section className="mt-6 border-t border-white/10 pt-4 text-xs text-ink-muted">
         Origem: {lead.fonte === 'conhecimento_setorial' ? 'conhecimento do setor (verificar)' : lead.fonte}
         {lead.fonte_url && <> · <Externo href={lead.fonte_url}>ver fonte</Externo></>}
+        <ContatoDoSite enr={lead.extras?.enriquecimento as Enriquecimento | undefined} />
       </section>
     </div>
   )
@@ -209,6 +210,20 @@ function Detalhes({ extras }: { extras: Record<string, unknown> }) {
         </div>
       )}
     </section>
+  )
+}
+
+interface Enriquecimento { data?: string; paginas?: string[]; resultado?: string }
+
+function ContatoDoSite({ enr }: { enr?: Enriquecimento }) {
+  if (!enr?.data) return null
+  const data = new Date(`${enr.data}T12:00:00`).toLocaleDateString('pt-BR')
+  const pagina = enr.paginas?.[enr.paginas.length - 1]
+  return (
+    <div className="mt-1">
+      {enr.resultado ? `Site visitado em ${data}: ${enr.resultado}.` : <>Contato encontrado no site em {data}</>}
+      {!enr.resultado && pagina && <> · <Externo href={pagina}>página</Externo></>}
+    </div>
   )
 }
 
