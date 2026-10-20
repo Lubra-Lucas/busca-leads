@@ -69,3 +69,14 @@ export const STATUS: { id: LeadStatus; nome: string }[] = [
 export const CANAIS = ['email', 'whatsapp', 'instagram', 'linkedin', 'telefone', 'presencial', 'outro'] as const
 
 export const temContato = (l: Lead) => Boolean(l.email || l.telefone || l.whatsapp)
+
+export interface TikTokPerfil {
+  seguidores?: number | null
+  verificado?: boolean
+  tiktok_shop?: boolean
+  link_bio?: string | null
+  data?: string
+}
+
+export const tiktokPerfil = (l: Lead) => l.extras?.tiktok_perfil as TikTokPerfil | undefined
+export const vendeNoTikTokShop = (l: Lead) => Boolean(tiktokPerfil(l)?.tiktok_shop)

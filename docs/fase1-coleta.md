@@ -71,6 +71,22 @@ Scripts: `scripts/enriquecer_sites.py` (leitura simples) e `scripts/renderizar_s
 - **Rastreio:** cada lead guarda em `extras.enriquecimento` a data, as páginas visitadas e todos os e-mails e telefones achados. A ficha no site mostra de onde veio o contato.
 - **O que ficou sem contato:** 54 sites não abriram nem pelo navegador. Os demais não publicam e-mail ou telefone. Para esses, o caminho é o LinkedIn do decisor ou o Apollo.
 
+## TikTok Shop e perfumaria (20/10/2026)
+Script: `scripts/tiktok_shop.py`. O perfil público do TikTok informa seguidores, verificado, link da bio e o indicador
+`ttSeller`, que diz se a conta vende no TikTok Shop. Não há ranking público de vendas: FastMoss e Kalodata exigem
+login ou pagamento, e o TikTok não publica um ranking.
+
+- **Marcas que já estavam na base:** 446 marcas de beleza e moda.
+  - De onde vem o @: do link no rodapé do site da marca ou, se não houver, do mesmo @ do Instagram.
+  - Quando o @ vem do Instagram, só é aceito se o nome bater com a marca e o perfil tiver pelo menos 100 seguidores.
+  - Resultado: 188 com TikTok encontrado, das quais 113 vendem no TikTok Shop.
+- **Marcas novas** (segmento *TikTok Shop e perfumaria*): candidatas vieram da imprensa (TikTok Newsroom, Mercado&Consumo), do radar TikVirals e de nichos que lideram as vendas (body splash, perfume, cabelo).
+  - Cada candidata foi conferida no TikTok. Entraram 20 marcas e 1 criadora (Patty Lazzarotto, "top 1" de MAC no TikTok Shop); 16 delas vendem no TikTok Shop.
+  - O contato veio do site de cada marca, com o mesmo script de enriquecimento.
+  - Ficaram de fora: Hinode, Koloss, Nupill, Yenzah e Mahogany, porque o @ encontrado era de outras pessoas. Lua Blossom e Ve Merlos também, porque o @ não foi confirmado. AURA Beauty, porque o perfil é incerto.
+- **Score das marcas novas:** 40 + 15 (vende no TikTok Shop) + 10/5 (seguidores ≥100 mil/≥10 mil) + 15 (e-mail) + 10 (WhatsApp) ou 5 (telefone). Marcas de grandes grupos (Avon, Darrow) têm −10.
+- **Onde os dados ficam:** em `extras.tiktok_perfil`. No site, há o filtro "TikTok Shop" e um selo na lista.
+
 ## Próximos passos (fase 1, continuação)
 1. Enriquecer os leads com score 80+: Instagram, contato comercial e e-mail (Apollo/Clay cobram créditos, então confirmar orçamento antes).
 2. Onda 2: microinfluenciadoras de SP (10k–300k seguidores), que são o público mais provável a lançar uma primeira linha com lote mínimo baixo.

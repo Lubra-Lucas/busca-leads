@@ -4,8 +4,8 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { AtSign, Briefcase, ExternalLink, Globe, MapPin, Mail, MessageCircle, Music2, Phone, Plus, X } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useData } from '../lib/data'
-import { CANAIS, STATUS, type Interacao, type Lead, type LeadStatus } from '../lib/types'
-import { instagramUrl, nf, scoreTom, tiktokUrl, urlDe, whatsappUrl } from '../lib/format'
+import { CANAIS, STATUS, tiktokPerfil, vendeNoTikTokShop, type Interacao, type Lead, type LeadStatus } from '../lib/types'
+import { instagramUrl, nf, nfCompacto, scoreTom, tiktokUrl, urlDe, whatsappUrl } from '../lib/format'
 
 export default function LeadDrawer({ lead, onClose }: { lead: Lead | null; onClose: () => void }) {
   useEffect(() => {
@@ -102,7 +102,13 @@ function Ficha({ lead, onClose }: { lead: Lead; onClose: () => void }) {
         <Linha rotulo="Telefone" icone={Phone}>{lead.telefone && <a className="hover:text-garnet" href={`tel:${lead.telefone}`}>{lead.telefone}</a>}</Linha>
         <Linha rotulo="Site" icone={Globe}>{lead.site && <Externo href={urlDe(lead.site)}>{lead.site}</Externo>}</Linha>
         <Linha rotulo="Instagram" icone={AtSign}>{lead.instagram && <Externo href={instagramUrl(lead.instagram)}>{lead.instagram}</Externo>}</Linha>
-        {lead.tiktok && <Linha rotulo="TikTok" icone={Music2}><Externo href={tiktokUrl(lead.tiktok)}>{lead.tiktok}</Externo></Linha>}
+        {lead.tiktok && (
+          <Linha rotulo="TikTok" icone={Music2}>
+            <Externo href={tiktokUrl(lead.tiktok)}>{lead.tiktok}</Externo>
+            {tiktokPerfil(lead)?.seguidores != null && <span className="ml-2 text-ink-muted">{nfCompacto.format(tiktokPerfil(lead)!.seguidores!)} seg.</span>}
+            {vendeNoTikTokShop(lead) && <span className="ml-2 rounded-full bg-garnet/15 px-1.5 py-0.5 text-[10px] font-medium text-garnet">TikTok Shop</span>}
+          </Linha>
+        )}
         <Linha rotulo="LinkedIn" icone={Briefcase}>{lead.linkedin && <Externo href={urlDe(lead.linkedin)}>Perfil</Externo>}</Linha>
         {lead.endereco && <Linha rotulo="Endereço" icone={MapPin}><span className="whitespace-normal">{lead.endereco}</span></Linha>}
       </section>

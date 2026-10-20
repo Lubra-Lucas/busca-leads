@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ArrowDown, Briefcase, ChevronLeft, ChevronRight, Download, Mail, MessageCircle, Phone, Search, X } from 'lucide-react'
+import { ArrowDown, Briefcase, ShoppingBag, ChevronLeft, ChevronRight, Download, Mail, MessageCircle, Phone, Search, X } from 'lucide-react'
 import LeadDrawer from '../components/LeadDrawer'
 import { useData } from '../lib/data'
-import { STATUS, temContato, type Lead, type LeadTipo } from '../lib/types'
+import { STATUS, temContato, vendeNoTikTokShop, type Lead, type LeadTipo } from '../lib/types'
 import { baixarCsv, nf, nfCompacto, scoreTom } from '../lib/format'
 
 const POR_PAGINA = 50
@@ -36,6 +36,7 @@ export default function Leads() {
     scoreMin: Number(params.get('scoreMin') ?? 0),
     contato: params.get('contato') === '1',
     ordem: params.get('ordem') ?? '',
+    tiktokShop: params.get('tiktokshop') === '1',
   }
   const leadAberto = params.get('lead')
 
@@ -69,6 +70,7 @@ export default function Leads() {
         (!f.cidade || l.cidade === f.cidade) &&
         (l.score ?? 0) >= f.scoreMin &&
         (!f.contato || temContato(l)) &&
+        (!f.tiktokShop || vendeNoTikTokShop(l)) &&
         (!q || [l.nome, l.contato_nome, l.observacoes, l.cidade, l.bairro, l.instagram, l.tiktok, l.email, l.subsegmento]
           .some((v) => v?.toLowerCase().includes(q))),
     )
@@ -76,7 +78,7 @@ export default function Leads() {
     if (!chave) return lista
     // maior primeiro; quem não tem o número vai para o fim
     return [...lista].sort((a, b) => (chave(b) ?? -1) - (chave(a) ?? -1))
-  }, [leads, f.q, f.tipo, f.segmento, f.status, f.uf, f.cidade, f.scoreMin, f.contato, f.ordem])
+  }, [leads, f.q, f.tipo, f.segmento, f.status, f.uf, f.cidade, f.scoreMin, f.contato, f.tiktokShop, f.ordem])
 
   const [pagina, setPagina] = useState(0)
   useEffect(() => setPagina(0), [filtrados])
@@ -107,6 +109,12 @@ export default function Leads() {
             <input className="input pl-9" placeholder="Buscar por nome, cidade, observação…" value={f.q}
               onChange={(e) => set('q', e.target.value)} />
           </div>
+          <button onClick={() => set('tiktokshop', f.tiktokShop ? '' : '1')}
+            title="Marcas e criadores com loja no TikTok Shop"
+            className={`flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm transition ${
+              f.tiktokShop ? 'border-garnet bg-garnet/15 text-ink' : 'border-white/10 bg-raised text-ink-muted hover:text-ink'}`}>
+            <ShoppingBag size={14} /> TikTok Shop
+          </button>
           <div className="flex rounded-lg border border-white/10 bg-raised p-0.5">
             {TIPOS.map((t) => (
               <button key={t.id} onClick={() => set('tipo', t.id)}
@@ -186,7 +194,12 @@ export default function Leads() {
                     onClick={() => set('lead', l.id)}
                     className="cursor-pointer border-b border-white/5 transition hover:bg-white/[0.03]">
                     <td className="px-4 py-3">
-                      <div className="font-medium">{l.nome}</div>
+                      <div className="flex items-center gap-2 font-medium">
+                        {l.nome}
+                        {vendeNoTikTokShop(l) && (
+                          <span title="Vende no TikTok Shop" className="rounded-full bg-garnet/15 px-1.5 py-0.5 text-[10px] font-medium text-garnet">TikTok Shop</span>
+                        )}
+                      </div>
                       <div className="text-xs text-ink-muted">{l.subsegmento ?? (l.tipo === 'cliente' ? 'Cliente' : 'Fornecedor')}</div>
                     </td>
                     {verSeguidores ? (
