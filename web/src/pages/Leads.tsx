@@ -1,11 +1,13 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Download, Mail, MessageCircle, Phone, Search, X } from 'lucide-react'
+import { Briefcase, ChevronLeft, ChevronRight, Download, Mail, MessageCircle, Phone, Search, X } from 'lucide-react'
 import LeadDrawer from '../components/LeadDrawer'
 import { useData } from '../lib/data'
 import { STATUS, temContato, type LeadTipo } from '../lib/types'
 import { baixarCsv, nf, scoreTom } from '../lib/format'
+
+const POR_PAGINA = 50
 
 const TIPOS: { id: '' | LeadTipo; nome: string }[] = [
   { id: '', nome: 'Todos' },
@@ -57,9 +59,15 @@ export default function Leads() {
         (!f.cidade || l.cidade === f.cidade) &&
         (l.score ?? 0) >= f.scoreMin &&
         (!f.contato || temContato(l)) &&
-        (!q || [l.nome, l.contato_nome, l.observacoes, l.cidade, l.instagram].some((v) => v?.toLowerCase().includes(q))),
+        (!q || [l.nome, l.contato_nome, l.observacoes, l.cidade, l.bairro, l.instagram, l.tiktok, l.email, l.subsegmento]
+          .some((v) => v?.toLowerCase().includes(q))),
     )
   }, [leads, f.q, f.tipo, f.segmento, f.status, f.uf, f.cidade, f.scoreMin, f.contato])
+
+  const [pagina, setPagina] = useState(0)
+  useEffect(() => setPagina(0), [filtrados])
+  const paginas = Math.max(1, Math.ceil(filtrados.length / POR_PAGINA))
+  const visiveis = filtrados.slice(pagina * POR_PAGINA, (pagina + 1) * POR_PAGINA)
 
   const temFiltro = [...params.keys()].some((k) => k !== 'lead')
   const lead = leads.find((l) => l.id === leadAberto) ?? null
@@ -150,14 +158,14 @@ export default function Leads() {
               </tr>
             </thead>
             <tbody>
-              <AnimatePresence initial={false}>
-                {filtrados.map((l) => (
-                  <motion.tr key={l.id} layout initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              <AnimatePresence initial={false} mode="popLayout">
+                {visiveis.map((l) => (
+                  <motion.tr key={l.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                     onClick={() => set('lead', l.id)}
                     className="cursor-pointer border-b border-white/5 transition hover:bg-white/[0.03]">
                     <td className="px-4 py-3">
                       <div className="font-medium">{l.nome}</div>
-                      <div className="text-xs text-ink-muted">{l.tipo === 'cliente' ? 'Cliente' : 'Fornecedor'}</div>
+                      <div className="text-xs text-ink-muted">{l.subsegmento ?? (l.tipo === 'cliente' ? 'Cliente' : 'Fornecedor')}</div>
                     </td>
                     <td className="px-4 py-3 text-ink-soft">{nomeSeg(l.segmento_id)}</td>
                     <td className="hidden px-4 py-3 text-ink-soft md:table-cell">
@@ -168,6 +176,7 @@ export default function Leads() {
                         <Mail size={15} className={l.email ? 'text-ink' : 'opacity-30'} />
                         <MessageCircle size={15} className={l.whatsapp ? 'text-ink' : 'opacity-30'} />
                         <Phone size={15} className={l.telefone ? 'text-ink' : 'opacity-30'} />
+                        <Briefcase size={15} className={l.linkedin ? 'text-ink' : 'opacity-30'} />
                       </div>
                     </td>
                     <td className="hidden px-4 py-3 sm:table-cell">
@@ -183,6 +192,18 @@ export default function Leads() {
           </table>
           {!filtrados.length && <p className="p-8 text-center text-sm text-ink-muted">Nenhum lead com esses filtros.</p>}
         </div>
+        {paginas > 1 && (
+          <div className="flex items-center justify-between border-t border-white/10 px-4 py-3 text-sm text-ink-muted">
+            <span className="tabular">
+              {pagina * POR_PAGINA + 1}–{Math.min((pagina + 1) * POR_PAGINA, filtrados.length)} de {nf.format(filtrados.length)}
+            </span>
+            <div className="flex items-center gap-2">
+              <button className="btn-ghost px-2" disabled={pagina === 0} onClick={() => setPagina(pagina - 1)}><ChevronLeft size={15} /></button>
+              <span className="tabular">{pagina + 1} / {paginas}</span>
+              <button className="btn-ghost px-2" disabled={pagina >= paginas - 1} onClick={() => setPagina(pagina + 1)}><ChevronRight size={15} /></button>
+            </div>
+          </div>
+        )}
       </div>
 
       <LeadDrawer lead={lead} onClose={() => set('lead', '')} />

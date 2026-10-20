@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'framer-motion'
-import { AtSign, ExternalLink, Globe, Briefcase, Mail, MessageCircle, Phone, Plus, X } from 'lucide-react'
+import { AtSign, Briefcase, ExternalLink, Globe, MapPin, Mail, MessageCircle, Music2, Phone, Plus, X } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useData } from '../lib/data'
 import { CANAIS, STATUS, type Interacao, type Lead, type LeadStatus } from '../lib/types'
-import { instagramUrl, scoreTom, urlDe, whatsappUrl } from '../lib/format'
+import { instagramUrl, nf, scoreTom, tiktokUrl, urlDe, whatsappUrl } from '../lib/format'
 
 export default function LeadDrawer({ lead, onClose }: { lead: Lead | null; onClose: () => void }) {
   useEffect(() => {
@@ -72,8 +72,12 @@ function Ficha({ lead, onClose }: { lead: Lead; onClose: () => void }) {
           <p className="text-xs uppercase tracking-wider text-ink-muted">
             {lead.tipo === 'cliente' ? 'Cliente' : 'Fornecedor'} · {segmento?.nome}
           </p>
+          {lead.subsegmento && <p className="mt-0.5 text-xs text-ink-soft">{lead.subsegmento}</p>}
           <h2 className="mt-1 text-xl font-semibold">{lead.nome}</h2>
-          <p className="mt-1 text-sm text-ink-muted">{[lead.cidade, lead.uf].filter(Boolean).join(' / ') || 'Local não informado'}</p>
+          <p className="mt-1 text-sm text-ink-muted">
+            {[lead.bairro, lead.cidade, lead.uf].filter(Boolean).join(' · ') || 'Local não informado'}
+            {lead.seguidores ? ` · ${nf.format(lead.seguidores)} seguidores` : ''}
+          </p>
         </div>
         <div className="flex items-center gap-3">
           <div className="text-right">
@@ -97,11 +101,13 @@ function Ficha({ lead, onClose }: { lead: Lead; onClose: () => void }) {
         <Linha rotulo="WhatsApp" icone={MessageCircle}>{lead.whatsapp}</Linha>
         <Linha rotulo="Telefone" icone={Phone}>{lead.telefone && <a className="hover:text-garnet" href={`tel:${lead.telefone}`}>{lead.telefone}</a>}</Linha>
         <Linha rotulo="Site" icone={Globe}>{lead.site && <Externo href={urlDe(lead.site)}>{lead.site}</Externo>}</Linha>
-        <Linha rotulo="Instagram" icone={AtSign}>
-          {lead.instagram && <Externo href={instagramUrl(lead.instagram)}>{lead.instagram}{lead.instagram_seguidores ? ` · ${lead.instagram_seguidores.toLocaleString('pt-BR')} seg.` : ''}</Externo>}
-        </Linha>
+        <Linha rotulo="Instagram" icone={AtSign}>{lead.instagram && <Externo href={instagramUrl(lead.instagram)}>{lead.instagram}</Externo>}</Linha>
+        {lead.tiktok && <Linha rotulo="TikTok" icone={Music2}><Externo href={tiktokUrl(lead.tiktok)}>{lead.tiktok}</Externo></Linha>}
         <Linha rotulo="LinkedIn" icone={Briefcase}>{lead.linkedin && <Externo href={urlDe(lead.linkedin)}>Perfil</Externo>}</Linha>
+        {lead.endereco && <Linha rotulo="Endereço" icone={MapPin}><span className="whitespace-normal">{lead.endereco}</span></Linha>}
       </section>
+
+      <Detalhes extras={lead.extras ?? {}} />
 
       <section className="mt-6 space-y-2">
         <h3 className="text-xs font-medium uppercase tracking-wider text-ink-muted">Gestão</h3>
@@ -150,6 +156,59 @@ function Ficha({ lead, onClose }: { lead: Lead; onClose: () => void }) {
         {lead.fonte_url && <> · <Externo href={lead.fonte_url}>ver fonte</Externo></>}
       </section>
     </div>
+  )
+}
+
+// rótulos dos campos extras vindos das planilhas
+const EXTRAS: Record<string, string> = {
+  target: 'Avaliação (target)',
+  plataforma: 'Plataforma',
+  tipo_contato: 'Tipo de contato',
+  assessoria: 'Assessoria',
+  link_bio: 'Link na bio',
+  outros_emails: 'Outros e-mails',
+  media_views_reels: 'Média de views (Reels)',
+  preco_reels: 'Preço Reels',
+  preco_pacote: 'Preço pacote',
+  nota_google: 'Nota no Google',
+  avaliacoes_google: 'Avaliações no Google',
+  porte_funcionarios: 'Funcionários',
+  faturamento_usd: 'Faturamento (USD)',
+  ranking_planilha: 'Ranking na planilha',
+  origem: 'Planilha de origem',
+}
+const MOEDA = new Set(['preco_reels', 'preco_pacote'])
+
+function Detalhes({ extras }: { extras: Record<string, unknown> }) {
+  const itens = Object.keys(EXTRAS).filter((k) => extras[k] != null && extras[k] !== '')
+  const unidades = (extras.unidades as { nome: string; endereco?: string; telefone?: string }[] | undefined) ?? []
+  if (!itens.length && !unidades.length) return null
+  const fmt = (k: string, v: unknown) =>
+    MOEDA.has(k) && typeof v === 'number' ? v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+      : typeof v === 'number' ? nf.format(v) : String(v)
+  return (
+    <section className="mt-6 space-y-2">
+      <h3 className="text-xs font-medium uppercase tracking-wider text-ink-muted">Detalhes</h3>
+      {itens.map((k) => (
+        <div key={k} className="flex gap-3 text-sm">
+          <span className="w-40 shrink-0 text-ink-muted">{EXTRAS[k]}</span>
+          <span className="min-w-0 break-words">{/^https?:\/\//.test(String(extras[k])) ? <Externo href={String(extras[k])}>abrir</Externo> : fmt(k, extras[k])}</span>
+        </div>
+      ))}
+      {unidades.length > 0 && (
+        <div className="pt-1">
+          <p className="mb-1.5 text-sm text-ink-muted">Unidades da rede ({unidades.length})</p>
+          <ul className="space-y-1.5">
+            {unidades.map((u) => (
+              <li key={u.nome} className="rounded-lg border border-white/10 bg-raised p-2.5 text-xs">
+                <div className="font-medium text-ink">{u.nome}</div>
+                <div className="mt-0.5 text-ink-muted">{[u.endereco, u.telefone].filter(Boolean).join(' · ')}</div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </section>
   )
 }
 

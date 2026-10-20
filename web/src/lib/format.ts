@@ -10,6 +10,10 @@ export function instagramUrl(handle: string) {
   return `https://instagram.com/${handle.replace(/^@/, '')}`
 }
 
+export function tiktokUrl(handle: string) {
+  return `https://www.tiktok.com/@${handle.replace(/^@/, '')}`
+}
+
 export function whatsappUrl(numero: string) {
   let digitos = numero.replace(/\D/g, '')
   if (digitos.length <= 11) digitos = `55${digitos}`
@@ -24,8 +28,9 @@ export function scoreTom(score: number | null) {
 }
 
 const COLUNAS: (keyof Lead)[] = [
-  'nome', 'tipo', 'segmento_id', 'status', 'score', 'cidade', 'uf', 'contato_nome', 'contato_cargo',
-  'email', 'telefone', 'whatsapp', 'site', 'instagram', 'linkedin', 'fonte', 'fonte_url', 'observacoes',
+  'nome', 'tipo', 'segmento_id', 'subsegmento', 'status', 'score', 'cidade', 'uf', 'bairro', 'endereco',
+  'contato_nome', 'contato_cargo', 'email', 'telefone', 'whatsapp', 'site', 'instagram', 'tiktok', 'seguidores',
+  'linkedin', 'fonte', 'fonte_url', 'observacoes',
 ]
 
 export function baixarCsv(leads: Lead[]) {

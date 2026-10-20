@@ -24,11 +24,15 @@ export interface Lead {
   nome: string
   contato_nome: string | null
   contato_cargo: string | null
+  subsegmento: string | null
   cidade: string | null
   uf: string | null
+  bairro: string | null
+  endereco: string | null
   site: string | null
   instagram: string | null
-  instagram_seguidores: number | null
+  tiktok: string | null
+  seguidores: number | null
   linkedin: string | null
   email: string | null
   telefone: string | null
@@ -38,6 +42,7 @@ export interface Lead {
   score: number | null
   status: LeadStatus
   observacoes: string | null
+  extras: Record<string, unknown>
   created_at: string
   updated_at: string
 }
