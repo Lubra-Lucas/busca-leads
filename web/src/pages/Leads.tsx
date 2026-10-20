@@ -1,13 +1,19 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Briefcase, ChevronLeft, ChevronRight, Download, Mail, MessageCircle, Phone, Search, X } from 'lucide-react'
+import { ArrowDown, Briefcase, ChevronLeft, ChevronRight, Download, Mail, MessageCircle, Phone, Search, X } from 'lucide-react'
 import LeadDrawer from '../components/LeadDrawer'
 import { useData } from '../lib/data'
-import { STATUS, temContato, type LeadTipo } from '../lib/types'
+import { STATUS, temContato, type Lead, type LeadTipo } from '../lib/types'
 import { baixarCsv, nf, nfCompacto, scoreTom } from '../lib/format'
 
 const POR_PAGINA = 50
+
+const numero = (v: unknown) => (v == null || v === '' || !Number.isFinite(Number(v)) ? null : Number(v))
+const ORDENS: Record<string, (l: Lead) => number | null> = {
+  seguidores: (l) => l.seguidores,
+  views: (l) => numero(l.extras?.media_views_reels),
+}
 
 const TIPOS: { id: '' | LeadTipo; nome: string }[] = [
   { id: '', nome: 'Todos' },
@@ -29,6 +35,7 @@ export default function Leads() {
     cidade: params.get('cidade') ?? '',
     scoreMin: Number(params.get('scoreMin') ?? 0),
     contato: params.get('contato') === '1',
+    ordem: params.get('ordem') ?? '',
   }
   const leadAberto = params.get('lead')
 
@@ -37,6 +44,7 @@ export default function Leads() {
     if (valor) p.set(campo, valor)
     else p.delete(campo)
     if (campo === 'tipo') p.delete('segmento')
+    if (campo === 'tipo' || campo === 'segmento') p.delete('ordem')
     setParams(p, { replace: campo === 'q' })
   }
 
@@ -52,7 +60,7 @@ export default function Leads() {
 
   const filtrados = useMemo(() => {
     const q = f.q.trim().toLowerCase()
-    return leads.filter(
+    const lista = leads.filter(
       (l) =>
         (!f.tipo || l.tipo === f.tipo) &&
         (!f.segmento || l.segmento_id === f.segmento) &&
@@ -64,7 +72,11 @@ export default function Leads() {
         (!q || [l.nome, l.contato_nome, l.observacoes, l.cidade, l.bairro, l.instagram, l.tiktok, l.email, l.subsegmento]
           .some((v) => v?.toLowerCase().includes(q))),
     )
-  }, [leads, f.q, f.tipo, f.segmento, f.status, f.uf, f.cidade, f.scoreMin, f.contato])
+    const chave = ORDENS[f.ordem]
+    if (!chave) return lista
+    // maior primeiro; quem não tem o número vai para o fim
+    return [...lista].sort((a, b) => (chave(b) ?? -1) - (chave(a) ?? -1))
+  }, [leads, f.q, f.tipo, f.segmento, f.status, f.uf, f.cidade, f.scoreMin, f.contato, f.ordem])
 
   const [pagina, setPagina] = useState(0)
   useEffect(() => setPagina(0), [filtrados])
@@ -152,8 +164,15 @@ export default function Leads() {
             <thead>
               <tr className="border-b border-white/10 text-left text-xs text-ink-muted">
                 <th className="px-4 py-3 font-medium">Nome</th>
-                <th className={`px-4 py-3 font-medium ${verSeguidores ? 'text-right' : ''}`}>{verSeguidores ? 'Seguidores' : 'Segmento'}</th>
-                {verSeguidores && <th className="px-4 py-3 text-right font-medium" title="Média dos últimos 12 Reels">Média de views</th>}
+                {verSeguidores ? (
+                  <>
+                    <ThOrdenavel nome="Seguidores" ativo={f.ordem === 'seguidores'} onClick={() => set('ordem', f.ordem === 'seguidores' ? '' : 'seguidores')} />
+                    <ThOrdenavel nome="Média de views" dica="Média dos últimos 12 Reels" ativo={f.ordem === 'views'}
+                      onClick={() => set('ordem', f.ordem === 'views' ? '' : 'views')} />
+                  </>
+                ) : (
+                  <th className="px-4 py-3 font-medium">Segmento</th>
+                )}
                 {!verSeguidores && <th className="hidden px-4 py-3 font-medium md:table-cell">Local</th>}
                 <th className="px-4 py-3 font-medium">Contato</th>
                 <th className="hidden px-4 py-3 font-medium sm:table-cell">Status</th>
@@ -234,4 +253,16 @@ function MediaViews({ valor }: { valor: unknown }) {
   const n = typeof valor === 'number' ? valor : Number(valor)
   if (!valor || !Number.isFinite(n)) return <span className="text-ink-muted">—</span>
   return <span title={`${nf.format(n)} views em média nos últimos 12 Reels`}>{nfCompacto.format(n)}</span>
+}
+
+function ThOrdenavel({ nome, dica, ativo, onClick }: { nome: string; dica?: string; ativo: boolean; onClick: () => void }) {
+  return (
+    <th className="px-4 py-3 text-right font-medium">
+      <button onClick={onClick} title={ativo ? 'Voltar à ordem por score' : `${dica ? dica + ' · ' : ''}Ordenar do maior para o menor`}
+        className={`inline-flex items-center gap-1 transition hover:text-ink ${ativo ? 'text-ink' : ''}`}>
+        {nome}
+        <ArrowDown size={13} className={ativo ? 'text-garnet' : 'opacity-40'} />
+      </button>
+    </th>
+  )
 }
