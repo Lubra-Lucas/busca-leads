@@ -153,7 +153,8 @@ export default function Leads() {
               <tr className="border-b border-white/10 text-left text-xs text-ink-muted">
                 <th className="px-4 py-3 font-medium">Nome</th>
                 <th className={`px-4 py-3 font-medium ${verSeguidores ? 'text-right' : ''}`}>{verSeguidores ? 'Seguidores' : 'Segmento'}</th>
-                <th className="hidden px-4 py-3 font-medium md:table-cell">Local</th>
+                {verSeguidores && <th className="px-4 py-3 text-right font-medium" title="Média dos últimos 12 Reels">Média de views</th>}
+                {!verSeguidores && <th className="hidden px-4 py-3 font-medium md:table-cell">Local</th>}
                 <th className="px-4 py-3 font-medium">Contato</th>
                 <th className="hidden px-4 py-3 font-medium sm:table-cell">Status</th>
                 <th className="px-4 py-3 text-right font-medium">Score</th>
@@ -183,9 +184,12 @@ export default function Leads() {
                     ) : (
                       <td className="px-4 py-3 text-ink-soft">{nomeSeg(l.segmento_id)}</td>
                     )}
+                    {verSeguidores && <td className="tabular px-4 py-3 text-right"><MediaViews valor={l.extras?.media_views_reels} /></td>}
+{!verSeguidores && (
                     <td className="hidden px-4 py-3 text-ink-soft md:table-cell">
                       {[l.cidade, l.uf].filter(Boolean).join(' / ') || <span className="text-ink-muted">—</span>}
                     </td>
+                    )}
                     <td className="px-4 py-3">
                       <div className="flex gap-2 text-ink-muted">
                         <Mail size={15} className={l.email ? 'text-ink' : 'opacity-30'} />
@@ -224,4 +228,10 @@ export default function Leads() {
       <LeadDrawer lead={lead} onClose={() => set('lead', '')} />
     </div>
   )
+}
+
+function MediaViews({ valor }: { valor: unknown }) {
+  const n = typeof valor === 'number' ? valor : Number(valor)
+  if (!valor || !Number.isFinite(n)) return <span className="text-ink-muted">—</span>
+  return <span title={`${nf.format(n)} views em média nos últimos 12 Reels`}>{nfCompacto.format(n)}</span>
 }
