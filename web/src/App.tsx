@@ -15,8 +15,8 @@ function Portao() {
 
   useEffect(() => {
     if (!session) return setPermitido(null)
-    supabase.from('usuarios_permitidos').select('email').maybeSingle()
-      .then(({ data }) => setPermitido(Boolean(data)))
+    // a regra de quem tem acesso fica no banco (função usuario_permitido)
+    supabase.rpc('usuario_permitido').then(({ data }) => setPermitido(data === true))
   }, [session])
 
   if (carregando || (session && permitido === null)) return <div className="min-h-screen bg-plane" />
@@ -44,7 +44,7 @@ function SemAcesso({ email }: { email: string }) {
       <div className="card max-w-sm p-8 text-center">
         <ShieldAlert className="mx-auto text-garnet" />
         <h1 className="mt-3 font-semibold">Acesso não liberado</h1>
-        <p className="mt-2 text-sm text-ink-muted">{email} ainda não está na lista de usuários permitidos.</p>
+        <p className="mt-2 text-sm text-ink-muted">{email} ainda não tem acesso liberado.</p>
         <button onClick={() => supabase.auth.signOut()} className="btn-ghost mt-6">Sair</button>
       </div>
     </div>
