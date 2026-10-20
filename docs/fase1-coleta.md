@@ -50,6 +50,8 @@ Fontes: `Leads_atualizado.xlsx` (influenciadoras + monitoramento de e-mails) e `
 - **Plataformas ignoradas:** o scraper do Google Maps às vezes trouxe o Instagram de plataformas de agendamento (`@trinksoficial`, `@bitly`), e esses foram descartados.
 - **Status:** "envio de mensagem = sim" virou *Contatado*; quem respondeu e-mail virou *Respondeu* (ou *Perdido* se "seguir adiante = não"); as marcas que a própria planilha excluiu viraram *Descartado*, com o motivo nas observações.
 
+- **Correção (20/10):** na primeira carga, quem tinha contato só por "DM" (ou "link na bio" / "Site: …") ficou com esse texto no campo assessoria e com +15 de score indevido. Isso foi corrigido no banco (65 influenciadoras: o texto foi tirado de assessoria, o link foi para "link na bio" e o score recalculado) e no script.
+
 ### Score das planilhas
 - **Cosméticos e Vestuário (TOP):** Garnet Lead Score da planilha (0–100).
 - **Reservas de Cosméticos/Vestuário:** 30 + 15 (decisor com LinkedIn) + 15 (e-mail) + 10 (WhatsApp) ou 5 (telefone) + 5 (site), com teto de 60.

@@ -163,6 +163,13 @@ def influenciadoras(arq):
                 rec['telefone'] = str(contato)
                 if eh_celular(str(contato)) or 'whatsapp' in tipo_contato:
                     rec['whatsapp'] = str(contato)
+            elif re.match(r'(?i)(chamar na )?dm\b', str(contato)):
+                # só DM: não é assessoria; aproveita um link que venha junto ("DM / linktr.ee/...")
+                m = re.search(r'(\S+\.\S+)$', str(contato))
+                if m:
+                    rec['extras']['link_bio'] = m.group(1)
+            elif re.match(r'(?i)site:\s*', str(contato)) or re.search(r'(?i)link .*na bio$', str(contato)):
+                rec['extras']['link_bio'] = re.sub(r'(?i)^site:\s*', '', str(contato))
             elif re.match(r'https?://|www\.|[\w-]+\.(com|br|bio|ee|me)\b', str(contato)):
                 rec['extras']['link_bio'] = str(contato)
             else:
