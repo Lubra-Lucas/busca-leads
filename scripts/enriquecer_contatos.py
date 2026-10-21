@@ -108,7 +108,7 @@ def dominio_coerente(email, site, nome):
 
 def tipo_email(email, pagina=''):
     local = email.split('@')[0].lower()
-    if L_DESCARTA.match(local) or re.search(r'financ|fiscal|cobranc|faturamento|contabil|rh\b|vagas', local):
+    if L_DESCARTA.match(local) or re.search(r'financ|fiscal|cobranc|faturamento|contabil|rh\b|vagas|recrut|curricul|talent', local):
         return None
     if L_COMERCIAL.match(local) or re.search(r'imprensa|parceria|comercial|vendas|marketing|atacado|revenda|publi', local):
         return 'comercial'
@@ -371,6 +371,7 @@ def cmd_manual(manual, saida):
         cs = []
         for c in m['contatos']:
             c = {k: v for k, v in c.items() if v}
+            c['manual'] = True  # tipo definido por quem achou: não reclassificar
             if c.get('telefone'):
                 c['telefone'] = e164(c['telefone']) or c['telefone']
             if c.get('whatsapp'):
@@ -402,7 +403,7 @@ def revalidar(r):
     cs = []
     for c in r.get('contatos', []):
         c = dict(c)
-        if c.get('email') and c['fonte'] != 'cadastro anterior':
+        if c.get('email') and c['fonte'] != 'cadastro anterior' and not c.get('manual'):
             t = tipo_email(c['email'], c['fonte'])
             if not t:
                 continue
@@ -427,7 +428,7 @@ def cmd_sql(arqs):
         for r in map(revalidar, json.load(open(arq))):
             if not any(c['fonte'] != 'cadastro anterior' for c in r.get('contatos', [])):
                 continue  # nada novo além do que o lead já tinha
-            cs = [{**c, 'fonte': re.sub(r'^https?://(www\.)?', '', c['fonte'].split('?')[0])[:80]}
+            cs = [{**{k: v for k, v in c.items() if k != 'manual'}, 'fonte': re.sub(r'^https?://(www\.)?', '', c['fonte'].split('?')[0])[:80]}
                   for c in sorted(r['contatos'], key=lambda c: -RANK[c['tipo']])[:6]]
             linhas.append(f"({q(r['chave'])},{q(r.get('email'))},{q((r.get('old_email') or ''))},{q(r.get('telefone'))},"
                           f"{q(r.get('whatsapp'))},{q(r.get('contato_nome'))},{q(r.get('contato_cargo'))},{q(r.get('linkedin'))},"
