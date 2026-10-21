@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import { motion } from 'framer-motion'
 
 // Paleta de referência (modo escuro), validada pelo skill de dataviz.
-export const SERIE = { cliente: '#3987e5', fornecedor: '#d95926' } as const
+export const SERIE = { cliente: '#3987e5', fornecedor: '#d95926', investidor: '#199e70' } as const
 export const AZUL = '#3987e5'
 export const GRADE = '#2c2c2a'
 export const EIXO = '#383835'

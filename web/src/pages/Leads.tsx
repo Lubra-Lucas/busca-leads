@@ -4,7 +4,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { ArrowDown, Briefcase, ShoppingBag, ChevronLeft, ChevronRight, Download, Mail, MessageCircle, Phone, Search, X } from 'lucide-react'
 import LeadDrawer from '../components/LeadDrawer'
 import { useData } from '../lib/data'
-import { STATUS, temContato, vendeNoTikTokShop, type Lead, type LeadTipo } from '../lib/types'
+import { STATUS, TIPO_NOME, temContato, vendeNoTikTokShop, type Lead, type LeadTipo } from '../lib/types'
 import { baixarCsv, nf, nfCompacto, scoreTom } from '../lib/format'
 
 const POR_PAGINA = 50
@@ -19,6 +19,7 @@ const TIPOS: { id: '' | LeadTipo; nome: string }[] = [
   { id: '', nome: 'Todos' },
   { id: 'cliente', nome: 'Clientes' },
   { id: 'fornecedor', nome: 'Fornecedores' },
+  { id: 'investidor', nome: 'Investidores' },
 ]
 
 export default function Leads() {
@@ -200,7 +201,7 @@ export default function Leads() {
                           <span title="Vende no TikTok Shop" className="rounded-full bg-garnet/15 px-1.5 py-0.5 text-[10px] font-medium text-garnet">TikTok Shop</span>
                         )}
                       </div>
-                      <div className="text-xs text-ink-muted">{l.subsegmento ?? (l.tipo === 'cliente' ? 'Cliente' : 'Fornecedor')}</div>
+                      <div className="text-xs text-ink-muted">{l.subsegmento ?? TIPO_NOME[l.tipo]}</div>
                     </td>
                     {verSeguidores ? (
                       <td className="tabular px-4 py-3 text-right" title={l.seguidores ? nf.format(l.seguidores) : undefined}>

@@ -4,7 +4,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { AtSign, Briefcase, ExternalLink, Globe, MapPin, Mail, MessageCircle, Music2, Phone, Plus, X } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useData } from '../lib/data'
-import { CANAIS, STATUS, tiktokPerfil, vendeNoTikTokShop, type Interacao, type Lead, type LeadStatus } from '../lib/types'
+import { CANAIS, STATUS, TIPO_NOME, tiktokPerfil, vendeNoTikTokShop, type Interacao, type Lead, type LeadStatus } from '../lib/types'
 import { instagramUrl, nf, nfCompacto, scoreTom, tiktokUrl, urlDe, whatsappUrl } from '../lib/format'
 
 export default function LeadDrawer({ lead, onClose }: { lead: Lead | null; onClose: () => void }) {
@@ -70,7 +70,7 @@ function Ficha({ lead, onClose }: { lead: Lead; onClose: () => void }) {
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-xs uppercase tracking-wider text-ink-muted">
-            {lead.tipo === 'cliente' ? 'Cliente' : 'Fornecedor'} · {segmento?.nome}
+            {TIPO_NOME[lead.tipo]} · {segmento?.nome}
           </p>
           {lead.subsegmento && <p className="mt-0.5 text-xs text-ink-soft">{lead.subsegmento}</p>}
           <h2 className="mt-1 text-xl font-semibold">{lead.nome}</h2>
@@ -168,6 +168,9 @@ function Ficha({ lead, onClose }: { lead: Lead; onClose: () => void }) {
 
 // rótulos dos campos extras vindos das planilhas
 const EXTRAS: Record<string, string> = {
+  tese: 'Tese de investimento',
+  ticket: 'Ticket',
+  precedentes: 'Já investiu em',
   target: 'Avaliação (target)',
   plataforma: 'Plataforma',
   tipo_contato: 'Tipo de contato',
@@ -189,7 +192,8 @@ const MOEDA = new Set(['preco_reels', 'preco_pacote'])
 function Detalhes({ extras }: { extras: Record<string, unknown> }) {
   const itens = Object.keys(EXTRAS).filter((k) => extras[k] != null && extras[k] !== '')
   const unidades = (extras.unidades as { nome: string; endereco?: string; telefone?: string }[] | undefined) ?? []
-  if (!itens.length && !unidades.length) return null
+  const pessoas = (extras.pessoas_investimento as { nome: string; cargo?: string; linkedin?: string }[] | undefined) ?? []
+  if (!itens.length && !unidades.length && !pessoas.length) return null
   const fmt = (k: string, v: unknown) =>
     MOEDA.has(k) && typeof v === 'number' ? v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
       : typeof v === 'number' ? nf.format(v) : String(v)
@@ -202,6 +206,22 @@ function Detalhes({ extras }: { extras: Record<string, unknown> }) {
           <span className="min-w-0 break-words">{/^https?:\/\//.test(String(extras[k])) ? <Externo href={String(extras[k])}>abrir</Externo> : fmt(k, extras[k])}</span>
         </div>
       ))}
+      {pessoas.length > 0 && (
+        <div className="pt-1">
+          <p className="mb-1.5 text-sm text-ink-muted">Quem decide os investimentos</p>
+          <ul className="space-y-1.5">
+            {pessoas.map((p) => (
+              <li key={p.nome} className="flex items-center justify-between gap-2 rounded-lg border border-white/10 bg-raised p-2.5 text-xs">
+                <div>
+                  <div className="font-medium text-ink">{p.nome}</div>
+                  {p.cargo && <div className="mt-0.5 text-ink-muted">{p.cargo}</div>}
+                </div>
+                {p.linkedin && <Externo href={p.linkedin}>LinkedIn</Externo>}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       {unidades.length > 0 && (
         <div className="pt-1">
           <p className="mb-1.5 text-sm text-ink-muted">Unidades da rede ({unidades.length})</p>

@@ -1,4 +1,6 @@
-export type LeadTipo = 'cliente' | 'fornecedor'
+export type LeadTipo = 'cliente' | 'fornecedor' | 'investidor'
+
+export const TIPO_NOME: Record<LeadTipo, string> = { cliente: 'Cliente', fornecedor: 'Fornecedor', investidor: 'Investidor' }
 
 export type LeadStatus =
   | 'novo'

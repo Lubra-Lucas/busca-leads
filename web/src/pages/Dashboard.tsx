@@ -2,12 +2,14 @@ import { useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { ArrowUpRight, Building2, Contact, Gauge, Truck, Users } from 'lucide-react'
+import { ArrowUpRight, Building2, Contact, Gauge, Landmark, Truck, Users } from 'lucide-react'
 import AnimatedNumber from '../components/AnimatedNumber'
 import { AZUL, ChartCard, Dica, EIXO, GRADE, Legenda, SERIE, eixoTick } from '../components/charts'
 import { useData } from '../lib/data'
 import { STATUS, temContato } from '../lib/types'
 import { scoreTom } from '../lib/format'
+
+const ORDEM_TIPO = { cliente: 0, fornecedor: 1, investidor: 2 }
 
 const FAIXAS = [
   { nome: '0–39', min: 0, max: 39 },
@@ -21,12 +23,12 @@ export default function Dashboard() {
   const navigate = useNavigate()
 
   const k = useMemo(() => {
-    const clientes = leads.filter((l) => l.tipo === 'cliente').length
     const comScore = leads.filter((l) => l.score != null)
     return {
       total: leads.length,
-      clientes,
-      fornecedores: leads.length - clientes,
+      clientes: leads.filter((l) => l.tipo === 'cliente').length,
+      fornecedores: leads.filter((l) => l.tipo === 'fornecedor').length,
+      investidores: leads.filter((l) => l.tipo === 'investidor').length,
       contato: leads.filter(temContato).length,
       scoreMedio: comScore.length ? Math.round(comScore.reduce((s, l) => s + (l.score ?? 0), 0) / comScore.length) : 0,
     }
@@ -36,7 +38,7 @@ export default function Dashboard() {
     () =>
       segmentos
         .map((s) => ({ id: s.id, nome: s.nome, tipo: s.tipo, total: leads.filter((l) => l.segmento_id === s.id).length }))
-        .sort((a, b) => (a.tipo === b.tipo ? b.total - a.total : a.tipo === 'cliente' ? -1 : 1)),
+        .sort((a, b) => ORDEM_TIPO[a.tipo] - ORDEM_TIPO[b.tipo] || b.total - a.total),
     [leads, segmentos],
   )
 
@@ -59,6 +61,7 @@ export default function Dashboard() {
     { nome: 'Leads', valor: k.total, icone: Users },
     { nome: 'Clientes', valor: k.clientes, icone: Building2 },
     { nome: 'Fornecedores', valor: k.fornecedores, icone: Truck },
+    { nome: 'Investidores', valor: k.investidores, icone: Landmark },
     { nome: 'Com contato direto', valor: k.contato, icone: Contact, extra: k.total ? `${Math.round((k.contato / k.total) * 100)}%` : '' },
     { nome: 'Score médio', valor: k.scoreMedio, icone: Gauge },
   ]
@@ -70,7 +73,7 @@ export default function Dashboard() {
         <p className="mt-1 text-sm text-ink-muted">Base de prospecção da Garnet Cosméticos · foco em SP</p>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
         {kpis.map((c, i) => (
           <motion.div key={c.nome}
             initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
@@ -92,7 +95,7 @@ export default function Dashboard() {
       <div className="grid gap-4 lg:grid-cols-5">
         <div className="lg:col-span-3">
           <ChartCard titulo="Leads por segmento" sub="Clique numa barra para ver os leads" delay={0.1}
-            legenda={<Legenda itens={[{ cor: SERIE.cliente, nome: 'Clientes' }, { cor: SERIE.fornecedor, nome: 'Fornecedores' }]} />}>
+            legenda={<Legenda itens={[{ cor: SERIE.cliente, nome: 'Clientes' }, { cor: SERIE.fornecedor, nome: 'Fornecedores' }, { cor: SERIE.investidor, nome: 'Investidores' }]} />}>
             <ResponsiveContainer width="100%" height={porSegmento.length * 34 + 20}>
               <BarChart data={porSegmento} layout="vertical" margin={{ left: 8, right: 24 }} barCategoryGap={6}>
                 <CartesianGrid horizontal={false} stroke={GRADE} />
@@ -163,8 +166,8 @@ export default function Dashboard() {
 
 function Carregando() {
   return (
-    <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-      {Array.from({ length: 5 }).map((_, i) => <div key={i} className="card h-24 animate-pulse" />)}
+    <div className="grid grid-cols-2 gap-3 lg:grid-cols-6">
+      {Array.from({ length: 6 }).map((_, i) => <div key={i} className="card h-24 animate-pulse" />)}
     </div>
   )
 }
