@@ -168,6 +168,7 @@ function Ficha({ lead, onClose }: { lead: Lead; onClose: () => void }) {
 
 // rótulos dos campos extras vindos das planilhas
 const EXTRAS: Record<string, string> = {
+  relacao_garnet: 'Relação com a Garnet',
   tese: 'Tese de investimento',
   ticket: 'Ticket',
   precedentes: 'Já investiu em',
