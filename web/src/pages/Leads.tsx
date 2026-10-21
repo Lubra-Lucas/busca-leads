@@ -1,12 +1,16 @@
 import { Fragment, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { ArrowDown, Briefcase, ShoppingBag, ChevronLeft, ChevronRight, Download, Mail, MessageCircle, Phone, Search, X } from 'lucide-react'
+import { ArrowDown, AtSign, Briefcase, ShoppingBag, ChevronLeft, ChevronRight, Download, Mail, MessageCircle, Music2, Phone, Search, X, type LucideIcon } from 'lucide-react'
 import CategoriaNav, { agruparCategorias } from '../components/CategoriaNav'
 import LeadDrawer from '../components/LeadDrawer'
+import NichoFiltro from '../components/NichoFiltro'
+import StatusBadge from '../components/StatusBadge'
 import { useData } from '../lib/data'
 import { STATUS, TIPO_NOME, temContato, vendeNoTikTokShop, type Lead, type LeadTipo } from '../lib/types'
-import { baixarCsv, nf, nfCompacto, scoreTom } from '../lib/format'
+import { FASES, FASE_CURTA, PONTO_FASE, corAvatar, faseDe, iniciais, type FaseId } from '../lib/status'
+import { temNichos } from '../lib/nichos'
+import { baixarCsv, instagramUrl, nf, nfCompacto, scorePilula, tiktokUrl, urlDe, whatsappUrl } from '../lib/format'
 
 const POR_PAGINA = 50
 
@@ -34,6 +38,8 @@ export default function Leads() {
     cat: params.get('cat') ?? '',
     segmento: params.get('segmento') ?? '',
     status: params.get('status') ?? '',
+    fase: params.get('fase') ?? '',
+    nichos: (params.get('nichos') ?? '').split(',').filter(Boolean),
     uf: params.get('uf') ?? '',
     cidade: params.get('cidade') ?? '',
     scoreMin: Number(params.get('scoreMin') ?? 0),
@@ -64,9 +70,48 @@ export default function Leads() {
   const catDe = (id: string) => segInfo[id]?.categoria ?? segInfo[id]?.nome ?? ''
   // filtrando influenciadoras, a coluna de segmento seria repetida: mostra seguidores no lugar
   const verSeguidores = f.segmento === 'influenciadora'
+  // filtro de nicho só faz sentido na lista de influenciadoras
+  const verNichos = verSeguidores || f.cat === 'Influência'
+  const nichosAtivos = verNichos ? f.nichos : []
 
   // todos os filtros, menos categoria e segmento: serve para as contagens dos cartões
   const base = useMemo(() => {
+    const q = f.q.trim().toLowerCase()
+    return leads.filter(
+      (l) =>
+        (!f.tipo || l.tipo === f.tipo) &&
+        (!f.status || l.status === f.status) &&
+        (!f.fase || faseDe(l.status) === f.fase) &&
+        (!f.uf || l.uf === f.uf) &&
+        (!f.cidade || l.cidade === f.cidade) &&
+        (l.score ?? 0) >= f.scoreMin &&
+        (!f.contato || temContato(l)) &&
+        (!f.tiktokShop || vendeNoTikTokShop(l)) &&
+        (!q || [l.nome, l.contato_nome, l.observacoes, l.cidade, l.bairro, l.instagram, l.tiktok, l.email, l.subsegmento]
+          .some((v) => v?.toLowerCase().includes(q))),
+    )
+  }, [leads, f.q, f.tipo, f.status, f.fase, f.uf, f.cidade, f.scoreMin, f.contato, f.tiktokShop])
+
+  const contagem = useMemo(() => {
+    const c: Record<string, number> = {}
+    for (const l of base) c[l.segmento_id] = (c[l.segmento_id] ?? 0) + 1
+    return c
+  }, [base])
+
+  const filtrados = useMemo(() => {
+    const lista = base.filter((l) => (!f.cat || catDe(l.segmento_id) === f.cat) && (!f.segmento || l.segmento_id === f.segmento) &&
+      (!nichosAtivos.length || temNichos(l, nichosAtivos)))
+    const chave = ORDENS[f.ordem]
+    // maior primeiro; quem não tem o número vai para o fim
+    if (chave) return [...lista].sort((a, b) => (chave(b) ?? -1) - (chave(a) ?? -1))
+    // em blocos: categoria/segmento na ordem definida no banco e, dentro de cada bloco, maior score primeiro
+    return [...lista].sort((a, b) =>
+      (segInfo[a.segmento_id]?.ordem ?? 999) - (segInfo[b.segmento_id]?.ordem ?? 999) || (b.score ?? 0) - (a.score ?? 0))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [base, f.cat, f.segmento, f.ordem, segInfo, nichosAtivos.join(',')])
+
+  // leads sem o filtro de fase e de nicho: base das contagens dos chips e do filtro de nicho
+  const semFase = useMemo(() => {
     const q = f.q.trim().toLowerCase()
     return leads.filter(
       (l) =>
@@ -77,27 +122,21 @@ export default function Leads() {
         (l.score ?? 0) >= f.scoreMin &&
         (!f.contato || temContato(l)) &&
         (!f.tiktokShop || vendeNoTikTokShop(l)) &&
+        (!f.cat || catDe(l.segmento_id) === f.cat) && (!f.segmento || l.segmento_id === f.segmento) &&
         (!q || [l.nome, l.contato_nome, l.observacoes, l.cidade, l.bairro, l.instagram, l.tiktok, l.email, l.subsegmento]
           .some((v) => v?.toLowerCase().includes(q))),
     )
-  }, [leads, f.q, f.tipo, f.status, f.uf, f.cidade, f.scoreMin, f.contato, f.tiktokShop])
-
-  const contagem = useMemo(() => {
-    const c: Record<string, number> = {}
-    for (const l of base) c[l.segmento_id] = (c[l.segmento_id] ?? 0) + 1
-    return c
-  }, [base])
-
-  const filtrados = useMemo(() => {
-    const lista = base.filter((l) => (!f.cat || catDe(l.segmento_id) === f.cat) && (!f.segmento || l.segmento_id === f.segmento))
-    const chave = ORDENS[f.ordem]
-    // maior primeiro; quem não tem o número vai para o fim
-    if (chave) return [...lista].sort((a, b) => (chave(b) ?? -1) - (chave(a) ?? -1))
-    // em blocos: categoria/segmento na ordem definida no banco e, dentro de cada bloco, maior score primeiro
-    return [...lista].sort((a, b) =>
-      (segInfo[a.segmento_id]?.ordem ?? 999) - (segInfo[b.segmento_id]?.ordem ?? 999) || (b.score ?? 0) - (a.score ?? 0))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [base, f.cat, f.segmento, f.ordem, segInfo])
+  }, [leads, f.q, f.tipo, f.status, f.uf, f.cidade, f.scoreMin, f.contato, f.tiktokShop, f.cat, f.segmento, segInfo])
+  // para o filtro de nicho: tudo menos o próprio nicho (inclui a fase)
+  const paraNichos = useMemo(() => semFase.filter((l) => !f.fase || faseDe(l.status) === f.fase), [semFase, f.fase])
+  const contagemFase = useMemo(() => {
+    const c: Record<string, number> = {}
+    for (const l of semFase) if (!nichosAtivos.length || temNichos(l, nichosAtivos)) c[faseDe(l.status)] = (c[faseDe(l.status)] ?? 0) + 1
+    return c
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [semFase, nichosAtivos.join(',')])
+  const totalFases = Object.values(contagemFase).reduce((a, b) => a + b, 0)
   const emBlocos = !ORDENS[f.ordem]
   const totalTipo = (t: string) => leads.filter((l) => !t || l.tipo === t).length
 
@@ -159,6 +198,27 @@ export default function Leads() {
             setParams(p)
           }} />
 
+        <div className="flex gap-1.5 overflow-x-auto pb-1" role="group" aria-label="Filtrar por fase">
+          {[{ id: '' as '' | FaseId, nome: 'Todos', ponto: '' }, ...FASES.map((x) => ({ id: x.id, nome: FASE_CURTA[x.id], ponto: PONTO_FASE[x.id] }))].map((x) => {
+            const ativo = f.fase === x.id
+            const qtd = x.id ? contagemFase[x.id] ?? 0 : totalFases
+            return (
+              <button key={x.id} onClick={() => set('fase', x.id)} aria-pressed={ativo}
+                title={x.id ? FASES.find((y) => y.id === x.id)!.status.map((s) => STATUS.find((t) => t.id === s)!.nome).join(' · ') : undefined}
+                className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1 text-xs transition ${
+                  ativo ? 'border-white/30 bg-white/10 text-ink' : 'border-white/10 text-ink-muted hover:bg-white/5 hover:text-ink'}`}>
+                {x.ponto && <span className={`h-1.5 w-1.5 rounded-full ${x.ponto}`} />}
+                {x.nome} <span className="tabular opacity-60">{nf.format(qtd)}</span>
+              </button>
+            )
+          })}
+        </div>
+
+        {verNichos && (
+          <NichoFiltro leads={paraNichos} selecionados={f.nichos}
+            onChange={(n) => set('nichos', n.join(','))} />
+        )}
+
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
           <select className="input" value={f.status} onChange={(e) => set('status', e.target.value)}>
             <option value="">Todos os status</option>
@@ -196,8 +256,8 @@ export default function Leads() {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-white/10 text-left text-xs text-ink-muted">
-                <th className="px-4 py-3 font-medium">Nome</th>
+              <tr className="border-b border-white/10 bg-white/[0.02] text-left text-[11px] uppercase tracking-wider text-ink-muted">
+                <th className="px-3 py-3 font-medium sm:px-4">Nome</th>
                 {verSeguidores ? (
                   <>
                     <ThOrdenavel nome="Seguidores" ativo={f.ordem === 'seguidores'} onClick={() => set('ordem', f.ordem === 'seguidores' ? '' : 'seguidores')} />
@@ -205,77 +265,87 @@ export default function Leads() {
                       onClick={() => set('ordem', f.ordem === 'views' ? '' : 'views')} />
                   </>
                 ) : (
-                  <th className="px-4 py-3 font-medium">Segmento</th>
+                  <th className="hidden px-4 py-3 font-medium sm:table-cell">Segmento</th>
                 )}
                 {!verSeguidores && <th className="hidden px-4 py-3 font-medium md:table-cell">Local</th>}
-                <th className="px-4 py-3 font-medium">Contato</th>
+                <th className="px-3 py-3 font-medium sm:px-4">Contato</th>
                 <th className="hidden px-4 py-3 font-medium sm:table-cell">Status</th>
-                <th className="px-4 py-3 text-right font-medium">Score</th>
+                <th className="px-3 py-3 text-right font-medium sm:px-4">Score</th>
               </tr>
             </thead>
             <tbody>
-                {visiveis.map((l, i) => (
+                {visiveis.map((l, i) => {
+                  const perfil = perfilSocial(l)
+                  return (
                   <Fragment key={l.id}>
                   {emBlocos && (i === 0 || visiveis[i - 1].segmento_id !== l.segmento_id) && (
-                    <tr className="border-b border-white/10 bg-white/[0.03]">
-                      <td colSpan={6} className="px-4 py-2">
-                        <span className="text-[11px] font-medium uppercase tracking-wider text-ink-muted">{catDe(l.segmento_id)}</span>
-                        {catDe(l.segmento_id) !== nomeSeg(l.segmento_id) && (
-                          <span className="text-[11px] uppercase tracking-wider text-ink-muted"> · {nomeSeg(l.segmento_id)}</span>
-                        )}
-                        <span className="tabular ml-2 text-[11px] text-ink-muted/70">{nf.format(contagem[l.segmento_id] ?? 0)}</span>
+                    <tr className="border-y border-white/10 bg-gradient-to-r from-garnet/[0.07] to-transparent">
+                      <td colSpan={6} className="px-4 py-2.5">
+                        <div className="flex items-center gap-2">
+                          <span className="h-3.5 w-0.5 rounded-full bg-garnet" />
+                          <span className="text-xs font-semibold uppercase tracking-wider text-ink-soft">{catDe(l.segmento_id)}</span>
+                          {catDe(l.segmento_id) !== nomeSeg(l.segmento_id) && (
+                            <span className="text-xs uppercase tracking-wider text-ink-muted">· {nomeSeg(l.segmento_id)}</span>
+                          )}
+                          <span className="tabular rounded-full bg-white/10 px-1.5 py-px text-[10px] text-ink-soft">{nf.format(contagem[l.segmento_id] ?? 0)}</span>
+                        </div>
                       </td>
                     </tr>
                   )}
                   <motion.tr initial={{ opacity: 0 }} animate={{ opacity: 1 }}
                     onClick={() => set('lead', l.id)}
-                    className="cursor-pointer border-b border-white/5 transition hover:bg-white/[0.03]">
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2 font-medium">
-                        {l.nome}
-                        {vendeNoTikTokShop(l) && (
-                          <span title="Vende no TikTok Shop" className="rounded-full bg-garnet/15 px-1.5 py-0.5 text-[10px] font-medium text-garnet">TikTok Shop</span>
-                        )}
+                    className="cursor-pointer border-b border-white/5 transition odd:bg-white/[0.015] hover:bg-white/[0.05]">
+                    <td className={`${verSeguidores ? 'max-w-[6.5rem]' : 'max-w-[9.5rem]'} px-3 py-3 sm:max-w-none sm:px-4`}>
+                      <div className="flex items-center gap-3">
+                        <span style={corAvatar(l.nome)} aria-hidden
+                          className="hidden h-8 sm:flex w-8 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold">
+                          {iniciais(l.nome)}
+                        </span>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 font-medium text-ink">
+                            <span className="truncate">{l.nome}</span>
+                            {vendeNoTikTokShop(l) && (
+                              <span title="Vende no TikTok Shop" className="shrink-0 rounded-full bg-garnet/15 px-1.5 py-0.5 text-[10px] font-medium text-garnet">TikTok Shop</span>
+                            )}
+                          </div>
+                          {verSeguidores && perfil ? (
+                            <div className="mt-0.5 flex items-center gap-1.5 overflow-hidden text-xs text-ink-muted">
+                              <span className="inline-flex shrink-0 items-center gap-1 rounded bg-white/5 px-1 py-px text-[10px] text-ink-soft">
+                                {perfil.plataforma === 'TikTok' ? <Music2 size={10} /> : <AtSign size={10} />}{perfil.plataforma}
+                              </span>
+                              <span className="truncate">{perfil.arroba}</span>
+                              {l.subsegmento && <span className="hidden truncate sm:inline">· {l.subsegmento}</span>}
+                            </div>
+                          ) : (
+                            <div className="truncate text-xs text-ink-muted">{l.subsegmento ?? TIPO_NOME[l.tipo]}</div>
+                          )}
+                        </div>
                       </div>
-                      <div className="text-xs text-ink-muted">{l.subsegmento ?? TIPO_NOME[l.tipo]}</div>
                     </td>
                     {verSeguidores ? (
-                      <td className="tabular px-4 py-3 text-right" title={l.seguidores ? nf.format(l.seguidores) : undefined}>
-                        {l.seguidores ? (
-                          <>
-                            <span className="font-medium">{nfCompacto.format(l.seguidores)}</span>
-                            {(l.extras?.plataforma as string | undefined) && (
-                              <span className="ml-1.5 text-xs text-ink-muted">{String(l.extras.plataforma)}</span>
-                            )}
-                          </>
-                        ) : <span className="text-ink-muted">—</span>}
+                      <td className="tabular px-2 py-3 text-right sm:px-4" title={l.seguidores ? nf.format(l.seguidores) : undefined}>
+                        {l.seguidores ? <span className="font-medium">{nfCompacto.format(l.seguidores)}</span> : <span className="text-ink-muted">—</span>}
                       </td>
                     ) : (
-                      <td className="px-4 py-3 text-ink-soft">{nomeSeg(l.segmento_id)}</td>
+                      <td className="hidden px-4 py-3 text-ink-soft sm:table-cell">{nomeSeg(l.segmento_id)}</td>
                     )}
-                    {verSeguidores && <td className="tabular px-4 py-3 text-right"><MediaViews valor={l.extras?.media_views_reels} /></td>}
-{!verSeguidores && (
-                    <td className="hidden px-4 py-3 text-ink-soft md:table-cell">
-                      {[l.cidade, l.uf].filter(Boolean).join(' / ') || <span className="text-ink-muted">—</span>}
-                    </td>
+                    {verSeguidores && <td className="tabular hidden px-4 py-3 text-right sm:table-cell"><MediaViews valor={l.extras?.media_views_reels} /></td>}
+                    {!verSeguidores && (
+                      <td className="hidden px-4 py-3 text-ink-soft md:table-cell">
+                        {[l.cidade, l.uf].filter(Boolean).join(' / ') || <span className="text-ink-muted">—</span>}
+                      </td>
                     )}
-                    <td className="px-4 py-3">
-                      <div className="flex gap-2 text-ink-muted">
-                        <Mail size={15} className={l.email ? 'text-ink' : 'opacity-30'} />
-                        <MessageCircle size={15} className={l.whatsapp ? 'text-ink' : 'opacity-30'} />
-                        <Phone size={15} className={l.telefone ? 'text-ink' : 'opacity-30'} />
-                        <Briefcase size={15} className={l.linkedin ? 'text-ink' : 'opacity-30'} />
-                      </div>
-                    </td>
-                    <td className="hidden px-4 py-3 sm:table-cell">
-                      <span className="rounded-full border border-white/10 px-2 py-0.5 text-xs text-ink-soft">
-                        {STATUS.find((s) => s.id === l.status)?.nome}
+                    <td className="px-3 py-3 sm:px-4"><Canais lead={l} /></td>
+                    <td className="hidden px-4 py-3 sm:table-cell"><StatusBadge status={l.status} /></td>
+                    <td className="px-3 py-3 text-right sm:px-4">
+                      <span className={`tabular inline-flex min-w-[2.25rem] justify-center rounded-full border px-2 py-0.5 text-xs font-semibold ${scorePilula(l.score)}`}>
+                        {l.score ?? '—'}
                       </span>
                     </td>
-                    <td className={`tabular px-4 py-3 text-right font-semibold ${scoreTom(l.score)}`}>{l.score ?? '—'}</td>
                   </motion.tr>
                   </Fragment>
-                ))}
+                  )
+                })}
             </tbody>
           </table>
           {!filtrados.length && <p className="p-8 text-center text-sm text-ink-muted">Nenhum lead com esses filtros.</p>}
@@ -307,12 +377,43 @@ function MediaViews({ valor }: { valor: unknown }) {
 
 function ThOrdenavel({ nome, dica, ativo, onClick }: { nome: string; dica?: string; ativo: boolean; onClick: () => void }) {
   return (
-    <th className="px-4 py-3 text-right font-medium">
+    <th className={`px-2 py-3 text-right font-medium sm:px-4 ${dica ? 'hidden sm:table-cell' : ''}`}>
       <button onClick={onClick} title={ativo ? 'Voltar à ordem por score' : `${dica ? dica + ' · ' : ''}Ordenar do maior para o menor`}
         className={`inline-flex items-center gap-1 transition hover:text-ink ${ativo ? 'text-ink' : ''}`}>
         {nome}
         <ArrowDown size={13} className={ativo ? 'text-garnet' : 'opacity-40'} />
       </button>
     </th>
+  )
+}
+
+// @ e plataforma da influenciadora: a indicada na planilha, senão Instagram, senão TikTok
+function perfilSocial(l: Lead) {
+  const pref = String(l.extras?.plataforma ?? '').toLowerCase()
+  const ig = l.instagram ? { plataforma: 'Instagram', arroba: l.instagram.startsWith('@') ? l.instagram : `@${l.instagram}` } : null
+  const tt = l.tiktok ? { plataforma: 'TikTok', arroba: l.tiktok.startsWith('@') ? l.tiktok : `@${l.tiktok}` } : null
+  return (pref.includes('tiktok') ? tt ?? ig : ig ?? tt)
+}
+
+// só os canais que existem, cada um com tooltip e link
+function Canais({ lead: l }: { lead: Lead }) {
+  const canais: { nome: string; icone: LucideIcon; href: string; cor: string }[] = []
+  if (l.email) canais.push({ nome: `E-mail: ${l.email}`, icone: Mail, href: `mailto:${l.email}`, cor: 'text-sky-300' })
+  if (l.whatsapp) canais.push({ nome: `WhatsApp: ${l.whatsapp}`, icone: MessageCircle, href: whatsappUrl(l.whatsapp), cor: 'text-emerald-300' })
+  if (l.telefone) canais.push({ nome: `Telefone: ${l.telefone}`, icone: Phone, href: `tel:${l.telefone}`, cor: 'text-ink-soft' })
+  if (l.linkedin) canais.push({ nome: 'LinkedIn', icone: Briefcase, href: urlDe(l.linkedin), cor: 'text-blue-300' })
+  if (l.instagram) canais.push({ nome: `Instagram: ${l.instagram}`, icone: AtSign, href: instagramUrl(l.instagram), cor: 'text-pink-300' })
+  if (l.tiktok) canais.push({ nome: `TikTok: ${l.tiktok}`, icone: Music2, href: tiktokUrl(l.tiktok), cor: 'text-cyan-300' })
+  if (!canais.length) return <span className="text-xs text-ink-muted/70">sem contato</span>
+  return (
+    <div className="flex gap-1">
+      {canais.map((c, i) => (
+        <a key={c.nome} href={c.href} target="_blank" rel="noreferrer" title={c.nome} aria-label={c.nome}
+          onClick={(e) => e.stopPropagation()}
+          className={`${i >= 2 ? 'hidden sm:flex' : 'flex'} h-6 w-6 items-center sm:h-7 sm:w-7 justify-center rounded-md bg-white/5 transition hover:bg-white/10 ${c.cor}`}>
+          <c.icone size={14} />
+        </a>
+      ))}
+    </div>
   )
 }

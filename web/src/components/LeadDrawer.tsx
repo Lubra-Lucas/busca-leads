@@ -2,9 +2,11 @@ import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { AtSign, Briefcase, ExternalLink, Globe, MapPin, Mail, MessageCircle, Music2, Phone, Plus, X } from 'lucide-react'
+import StatusBadge from './StatusBadge'
 import { supabase } from '../lib/supabase'
 import { useData } from '../lib/data'
 import { CANAIS, STATUS, TIPO_NOME, tiktokPerfil, vendeNoTikTokShop, type Interacao, type Lead, type LeadStatus } from '../lib/types'
+import { ESTILO_STATUS, corAvatar, iniciais } from '../lib/status'
 import { instagramUrl, nf, nfCompacto, scoreTom, tiktokUrl, urlDe, whatsappUrl } from '../lib/format'
 
 export default function LeadDrawer({ lead, onClose }: { lead: Lead | null; onClose: () => void }) {
@@ -68,7 +70,11 @@ function Ficha({ lead, onClose }: { lead: Lead; onClose: () => void }) {
   return (
     <div className="p-6">
       <div className="flex items-start justify-between gap-4">
-        <div>
+        <div className="flex min-w-0 gap-3">
+          <span style={corAvatar(lead.nome)} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sm font-semibold">
+            {iniciais(lead.nome)}
+          </span>
+          <div className="min-w-0">
           <p className="text-xs uppercase tracking-wider text-ink-muted">
             {TIPO_NOME[lead.tipo]} · {segmento?.nome}
           </p>
@@ -78,6 +84,8 @@ function Ficha({ lead, onClose }: { lead: Lead; onClose: () => void }) {
             {[lead.bairro, lead.cidade, lead.uf].filter(Boolean).join(' · ') || 'Local não informado'}
             {lead.seguidores ? ` · ${nf.format(lead.seguidores)} seguidores` : ''}
           </p>
+          <div className="mt-2"><StatusBadge status={lead.status} comIcone /></div>
+          </div>
         </div>
         <div className="flex items-center gap-3">
           <div className="text-right">
@@ -118,13 +126,20 @@ function Ficha({ lead, onClose }: { lead: Lead; onClose: () => void }) {
       <section className="mt-6 space-y-2">
         <h3 className="text-xs font-medium uppercase tracking-wider text-ink-muted">Gestão</h3>
         <div className="flex flex-wrap gap-1.5">
-          {STATUS.map((s) => (
-            <button key={s.id} disabled={salvando} onClick={() => salvar({ status: s.id as LeadStatus })}
-              className={`rounded-full border px-3 py-1 text-xs transition ${
-                lead.status === s.id ? 'border-garnet bg-garnet/15 text-ink' : 'border-white/10 text-ink-muted hover:text-ink'}`}>
-              {s.nome}
-            </button>
-          ))}
+          {STATUS.map((s) => {
+            const e = ESTILO_STATUS[s.id]
+            const Icone = e.icone
+            const ativo = lead.status === s.id
+            return (
+              <button key={s.id} disabled={salvando} onClick={() => salvar({ status: s.id as LeadStatus })}
+                aria-pressed={ativo}
+                className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs transition ${
+                  ativo ? `${e.ativo} font-medium ring-2 ring-white/10` : 'border-white/10 text-ink-muted hover:bg-white/5 hover:text-ink'}`}>
+                <Icone size={12} className={ativo ? '' : 'opacity-60'} />
+                {s.nome}
+              </button>
+            )
+          })}
         </div>
         <textarea className="input min-h-[96px]" value={obs} onChange={(e) => setObs(e.target.value)} placeholder="Observações" />
         {obs !== (lead.observacoes ?? '') && (

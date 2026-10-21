@@ -30,6 +30,14 @@ export function scoreTom(score: number | null) {
   return 'text-ink-soft'
 }
 
+// pílula do score: verde ≥80, âmbar 60–79, cinza abaixo
+export function scorePilula(score: number | null) {
+  if (score == null) return 'border-white/10 text-ink-muted'
+  if (score >= 80) return 'border-emerald-400/30 bg-emerald-400/10 text-emerald-300'
+  if (score >= 60) return 'border-amber-400/30 bg-amber-400/10 text-amber-300'
+  return 'border-white/10 bg-white/5 text-ink-soft'
+}
+
 const COLUNAS: (keyof Lead)[] = [
   'nome', 'tipo', 'segmento_id', 'subsegmento', 'status', 'score', 'cidade', 'uf', 'bairro', 'endereco',
   'contato_nome', 'contato_cargo', 'email', 'telefone', 'whatsapp', 'site', 'instagram', 'tiktok', 'seguidores',
