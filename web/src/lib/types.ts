@@ -59,6 +59,12 @@ export interface Interacao {
   created_at: string
 }
 
+export interface Favorito {
+  nota: string | null
+  created_at: string
+  updated_at: string
+}
+
 export const STATUS: { id: LeadStatus; nome: string }[] = [
   { id: 'novo', nome: 'Novo' },
   { id: 'qualificado', nome: 'Qualificado' },

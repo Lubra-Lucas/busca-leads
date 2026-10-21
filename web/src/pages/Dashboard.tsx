@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { ArrowUpRight, Building2, Contact, Gauge, Landmark, Truck, Users } from 'lucide-react'
+import { ArrowUpRight, Building2, Contact, Gauge, Landmark, Star, Truck, Users } from 'lucide-react'
 import AnimatedNumber from '../components/AnimatedNumber'
 import { AZUL, ChartCard, Dica, EIXO, GRADE, Legenda, SERIE, eixoTick } from '../components/charts'
 import { useData } from '../lib/data'
@@ -19,7 +19,7 @@ const FAIXAS = [
 ]
 
 export default function Dashboard() {
-  const { leads, segmentos, carregando } = useData()
+  const { leads, segmentos, carregando, favoritos } = useData()
   const navigate = useNavigate()
 
   const k = useMemo(() => {
@@ -53,6 +53,11 @@ export default function Dashboard() {
   )
 
   const prioridades = leads.filter((l) => (l.score ?? 0) >= 80).slice(0, 8)
+  const salvos = useMemo(
+    () => leads.filter((l) => favoritos.has(l.id))
+      .sort((a, b) => favoritos.get(b.id)!.updated_at.localeCompare(favoritos.get(a.id)!.updated_at)).slice(0, 5),
+    [leads, favoritos],
+  )
   const nomeSeg = (id: string) => segmentos.find((s) => s.id === id)?.nome ?? id
 
   if (carregando && !leads.length) return <Carregando />
@@ -142,6 +147,24 @@ export default function Dashboard() {
           </ChartCard>
         </div>
       </div>
+
+      {salvos.length > 0 && (
+        <ChartCard titulo="Meus salvos" sub="Os últimos contatos que você marcou" delay={0.2}
+          legenda={<button onClick={() => navigate('/leads?salvos=1')} className="btn-ghost text-xs">Ver todos <ArrowUpRight size={13} /></button>}>
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+            {salvos.map((l) => (
+              <motion.button key={l.id} whileHover={{ y: -2 }} onClick={() => navigate(`/leads?lead=${l.id}`)}
+                className="min-w-0 rounded-xl border border-white/10 bg-raised p-3 text-left transition hover:border-white/20">
+                <div className="flex items-start gap-1.5">
+                  <Star size={13} className="mt-0.5 shrink-0 fill-amber-400 text-amber-400" />
+                  <span className="truncate text-sm font-medium leading-tight">{l.nome}</span>
+                </div>
+                <div className="mt-1 truncate text-xs text-amber-200/70">{favoritos.get(l.id)?.nota || <span className="text-ink-muted">sem anotação</span>}</div>
+              </motion.button>
+            ))}
+          </div>
+        </ChartCard>
+      )}
 
       <ChartCard titulo="Prioridades" sub="Leads com score 80 ou mais" delay={0.25}
         legenda={<button onClick={() => navigate('/leads?scoreMin=80')} className="btn-ghost text-xs">Ver todos <ArrowUpRight size={13} /></button>}>

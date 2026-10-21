@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { ArrowDown, AtSign, Briefcase, ShoppingBag, ChevronLeft, ChevronRight, Download, Mail, MessageCircle, Music2, Phone, Search, X, type LucideIcon } from 'lucide-react'
+import { ArrowDown, AtSign, Briefcase, Check, ShoppingBag, ChevronLeft, ChevronRight, Download, Mail, MessageCircle, Music2, Phone, Search, Star, StickyNote, X, type LucideIcon } from 'lucide-react'
 import CategoriaNav, { agruparCategorias } from '../components/CategoriaNav'
 import LeadDrawer from '../components/LeadDrawer'
 import NichoFiltro from '../components/NichoFiltro'
@@ -28,7 +28,9 @@ const TIPOS: { id: '' | LeadTipo; nome: string }[] = [
 ]
 
 export default function Leads() {
-  const { leads, segmentos } = useData()
+  const { leads, segmentos, favoritos, alternarFavorito, salvarNota } = useData()
+  const [notaAberta, setNotaAberta] = useState<string | null>(null)
+  const [erroFav, setErroFav] = useState<string | null>(null)
   const [params, setParams] = useSearchParams()
 
   // filtros ficam na URL: dá para voltar, compartilhar e chegar aqui pelos gráficos
@@ -46,6 +48,7 @@ export default function Leads() {
     contato: params.get('contato') === '1',
     ordem: params.get('ordem') ?? '',
     tiktokShop: params.get('tiktokshop') === '1',
+    salvos: params.get('salvos') === '1',
   }
   const leadAberto = params.get('lead')
 
@@ -87,10 +90,11 @@ export default function Leads() {
         (l.score ?? 0) >= f.scoreMin &&
         (!f.contato || temContato(l)) &&
         (!f.tiktokShop || vendeNoTikTokShop(l)) &&
+        (!f.salvos || favoritos.has(l.id)) &&
         (!q || [l.nome, l.contato_nome, l.observacoes, l.cidade, l.bairro, l.instagram, l.tiktok, l.email, l.subsegmento]
           .some((v) => v?.toLowerCase().includes(q))),
     )
-  }, [leads, f.q, f.tipo, f.status, f.fase, f.uf, f.cidade, f.scoreMin, f.contato, f.tiktokShop])
+  }, [leads, favoritos, f.q, f.tipo, f.status, f.fase, f.uf, f.cidade, f.scoreMin, f.contato, f.tiktokShop, f.salvos])
 
   const contagem = useMemo(() => {
     const c: Record<string, number> = {}
@@ -102,13 +106,15 @@ export default function Leads() {
     const lista = base.filter((l) => (!f.cat || catDe(l.segmento_id) === f.cat) && (!f.segmento || l.segmento_id === f.segmento) &&
       (!nichosAtivos.length || temNichos(l, nichosAtivos)))
     const chave = ORDENS[f.ordem]
+    // nos salvos: os mexidos por último primeiro
+    if (f.salvos && !chave) return [...lista].sort((a, b) => (favoritos.get(b.id)?.updated_at ?? '').localeCompare(favoritos.get(a.id)?.updated_at ?? ''))
     // maior primeiro; quem não tem o número vai para o fim
     if (chave) return [...lista].sort((a, b) => (chave(b) ?? -1) - (chave(a) ?? -1))
     // em blocos: categoria/segmento na ordem definida no banco e, dentro de cada bloco, maior score primeiro
     return [...lista].sort((a, b) =>
       (segInfo[a.segmento_id]?.ordem ?? 999) - (segInfo[b.segmento_id]?.ordem ?? 999) || (b.score ?? 0) - (a.score ?? 0))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [base, f.cat, f.segmento, f.ordem, segInfo, nichosAtivos.join(',')])
+  }, [base, favoritos, f.salvos, f.cat, f.segmento, f.ordem, segInfo, nichosAtivos.join(',')])
 
   // leads sem o filtro de fase e de nicho: base das contagens dos chips e do filtro de nicho
   const semFase = useMemo(() => {
@@ -122,12 +128,13 @@ export default function Leads() {
         (l.score ?? 0) >= f.scoreMin &&
         (!f.contato || temContato(l)) &&
         (!f.tiktokShop || vendeNoTikTokShop(l)) &&
+        (!f.salvos || favoritos.has(l.id)) &&
         (!f.cat || catDe(l.segmento_id) === f.cat) && (!f.segmento || l.segmento_id === f.segmento) &&
         (!q || [l.nome, l.contato_nome, l.observacoes, l.cidade, l.bairro, l.instagram, l.tiktok, l.email, l.subsegmento]
           .some((v) => v?.toLowerCase().includes(q))),
     )
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [leads, f.q, f.tipo, f.status, f.uf, f.cidade, f.scoreMin, f.contato, f.tiktokShop, f.cat, f.segmento, segInfo])
+  }, [leads, favoritos, f.q, f.tipo, f.status, f.uf, f.cidade, f.scoreMin, f.contato, f.tiktokShop, f.salvos, f.cat, f.segmento, segInfo])
   // para o filtro de nicho: tudo menos o próprio nicho (inclui a fase)
   const paraNichos = useMemo(() => semFase.filter((l) => !f.fase || faseDe(l.status) === f.fase), [semFase, f.fase])
   const contagemFase = useMemo(() => {
@@ -137,13 +144,21 @@ export default function Leads() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [semFase, nichosAtivos.join(',')])
   const totalFases = Object.values(contagemFase).reduce((a, b) => a + b, 0)
-  const emBlocos = !ORDENS[f.ordem]
+  const emBlocos = !ORDENS[f.ordem] && !f.salvos
+  const totalSalvos = useMemo(() => leads.filter((l) => favoritos.has(l.id)).length, [leads, favoritos])
   const totalTipo = (t: string) => leads.filter((l) => !t || l.tipo === t).length
 
   const [pagina, setPagina] = useState(0)
   useEffect(() => setPagina(0), [filtrados])
   const paginas = Math.max(1, Math.ceil(filtrados.length / POR_PAGINA))
   const visiveis = filtrados.slice(pagina * POR_PAGINA, (pagina + 1) * POR_PAGINA)
+
+  // salvar abre a anotação rápida; tirar dos salvos fecha
+  async function marcar(id: string) {
+    const jaSalvo = favoritos.has(id)
+    setNotaAberta(jaSalvo ? null : id)
+    setErroFav(await alternarFavorito(id))
+  }
 
   const temFiltro = [...params.keys()].some((k) => k !== 'lead')
   const lead = leads.find((l) => l.id === leadAberto) ?? null
@@ -174,6 +189,13 @@ export default function Leads() {
             className={`flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm transition ${
               f.tiktokShop ? 'border-garnet bg-garnet/15 text-ink' : 'border-white/10 bg-raised text-ink-muted hover:text-ink'}`}>
             <ShoppingBag size={14} /> TikTok Shop
+          </button>
+          <button onClick={() => set('salvos', f.salvos ? '' : '1')} aria-pressed={f.salvos}
+            title="Leads que você marcou como interessantes"
+            className={`flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm transition ${
+              f.salvos ? 'border-amber-400/60 bg-amber-400/15 text-ink' : 'border-white/10 bg-raised text-ink-muted hover:text-ink'}`}>
+            <Star size={14} className={f.salvos || totalSalvos ? 'fill-amber-400 text-amber-400' : ''} /> Salvos
+            <span className="tabular text-xs opacity-60">{nf.format(totalSalvos)}</span>
           </button>
           <div className="flex max-w-full overflow-x-auto rounded-lg border border-white/10 bg-raised p-0.5">
             {TIPOS.map((t) => (
@@ -252,6 +274,8 @@ export default function Leads() {
         )}
       </div>
 
+      {erroFav && <p className="text-sm text-red-400" role="alert">Não foi possível salvar: {erroFav}</p>}
+
       <div className="card overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -276,6 +300,7 @@ export default function Leads() {
             <tbody>
                 {visiveis.map((l, i) => {
                   const perfil = perfilSocial(l)
+                  const fav = favoritos.get(l.id)
                   return (
                   <Fragment key={l.id}>
                   {emBlocos && (i === 0 || visiveis[i - 1].segmento_id !== l.segmento_id) && (
@@ -296,7 +321,13 @@ export default function Leads() {
                     onClick={() => set('lead', l.id)}
                     className="cursor-pointer border-b border-white/5 transition odd:bg-white/[0.015] hover:bg-white/[0.05]">
                     <td className={`${verSeguidores ? 'max-w-[6.5rem]' : 'max-w-[9.5rem]'} px-3 py-3 sm:max-w-none sm:px-4`}>
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2 sm:gap-3">
+                        <button onClick={(e) => { e.stopPropagation(); marcar(l.id) }}
+                          title={fav ? 'Remover dos salvos' : 'Salvar como interessante'} aria-pressed={!!fav}
+                          aria-label={fav ? 'Remover dos salvos' : 'Salvar como interessante'}
+                          className="-m-1 shrink-0 rounded-md p-1 transition hover:bg-white/10">
+                          <Star size={16} className={fav ? 'fill-amber-400 text-amber-400' : 'text-ink-muted hover:text-amber-300'} />
+                        </button>
                         <span style={corAvatar(l.nome)} aria-hidden
                           className="hidden h-8 sm:flex w-8 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold">
                           {iniciais(l.nome)}
@@ -304,6 +335,13 @@ export default function Leads() {
                         <div className="min-w-0">
                           <div className="flex items-center gap-2 font-medium text-ink">
                             <span className="truncate">{l.nome}</span>
+                            {fav?.nota && (
+                              <button title={fav.nota} aria-label={`Minha anotação: ${fav.nota}`}
+                                onClick={(e) => { e.stopPropagation(); setNotaAberta(l.id) }}
+                                className="shrink-0 text-amber-300/80 hover:text-amber-300">
+                                <StickyNote size={13} />
+                              </button>
+                            )}
                             {vendeNoTikTokShop(l) && (
                               <span title="Vende no TikTok Shop" className="shrink-0 rounded-full bg-garnet/15 px-1.5 py-0.5 text-[10px] font-medium text-garnet">TikTok Shop</span>
                             )}
@@ -319,6 +357,7 @@ export default function Leads() {
                           ) : (
                             <div className="truncate text-xs text-ink-muted">{l.subsegmento ?? TIPO_NOME[l.tipo]}</div>
                           )}
+                          {fav?.nota && <div className="truncate text-[11px] text-amber-200/70" title={fav.nota}>{fav.nota}</div>}
                         </div>
                       </div>
                     </td>
@@ -343,6 +382,14 @@ export default function Leads() {
                       </span>
                     </td>
                   </motion.tr>
+                  {notaAberta === l.id && (
+                    <tr className="border-b border-white/5 bg-amber-400/[0.06]" onClick={(e) => e.stopPropagation()}>
+                      <td colSpan={6} className="px-3 py-2 sm:px-4">
+                        <NotaRapida inicial={fav?.nota ?? ''} onFechar={() => setNotaAberta(null)}
+                          onSalvar={async (n) => { setNotaAberta(null); setErroFav(await salvarNota(l.id, n)) }} />
+                      </td>
+                    </tr>
+                  )}
                   </Fragment>
                   )
                 })}
@@ -365,6 +412,23 @@ export default function Leads() {
       </div>
 
       <LeadDrawer lead={lead} onClose={() => set('lead', '')} />
+    </div>
+  )
+}
+
+function NotaRapida({ inicial, onSalvar, onFechar }: { inicial: string; onSalvar: (nota: string) => void; onFechar: () => void }) {
+  const [texto, setTexto] = useState(inicial)
+  return (
+    <div className="flex items-center gap-2">
+      <StickyNote size={14} className="shrink-0 text-amber-300" />
+      <input autoFocus className="input !py-1.5 text-sm" value={texto} maxLength={500} placeholder="Anotação rápida (opcional)"
+        onChange={(e) => setTexto(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') onSalvar(texto)
+          if (e.key === 'Escape') { e.stopPropagation(); onFechar() }
+        }} />
+      <button onClick={() => onSalvar(texto)} title="Salvar anotação (Enter)" aria-label="Salvar anotação" className="btn-ghost px-2 py-1.5"><Check size={15} /></button>
+      <button onClick={onFechar} title="Fechar (Esc)" aria-label="Fechar" className="btn-ghost px-2 py-1.5"><X size={15} /></button>
     </div>
   )
 }
