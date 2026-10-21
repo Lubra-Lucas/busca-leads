@@ -43,9 +43,9 @@ T.CAMINHOS += ['/estojos', '/estojo', '/maquiagem', '/cosmeticos', '/catalogo', 
                '/orcamento-online', '/solicitar-orcamento', '/representantes', '/fale-com-a-gente', '/atendimento']
 
 PRODUTOS = [
-    ('estojo compacto', r'estojos? (?:para |de )?(?:p[oó]s? )?compact|p[oó]s? compact\w*|compactos? (?:vazio|para p[oó])|base compacta|compact case|pancake'),
+    ('estojo compacto', r'estojos? (?:para |de )?(?:p[oó]s? )?compact|p[oó]s? compact\w*|compactad[oa]s?|compactos? (?:vazio|para p[oó])|base compacta|compact case|pancake'),
     ('estojo', r'\bestojos?\b'), ('paleta de sombra', r'paletas?(?: de| para)? (?:sombra|maquiagem)|palete de sombra|quarteto|estojo (?:para )?sombra'),
-    ('godê', r'god[eê]s?\b|godets?|\bpans?\b (?:de|para) (?:sombra|blush|alum)'), ('espelho', r'espelhos? (?:para|de) (?:estojo|compact|bolsa)|estojo com espelho'),
+    ('godê', r'god[eê]s?\b|bandejas? (?:para|de) sombra|godets?|\bpans?\b (?:de|para) (?:sombra|blush|alum)'), ('espelho', r'espelhos? (?:para|de) (?:estojo|compact|bolsa)|estojo com espelho'),
     ('peneira', r'peneiras?|sifter'), ('pote para pó', r'pote (?:para |de )?p[oó]|loose powder|p[oó] solto'),
     ('batom', r'estojo (?:de |para )?batom|\bbatons?\b|lipstick|bisnaga labial'), ('gloss', r'\bgloss\b|brilho labial'),
     ('rímel', r'r[ií]mel|m[aá]scara de c[ií]lios|mascara'), ('refil', r'refil|recarreg[aá]vel|refill'),
@@ -84,6 +84,36 @@ def limpar_contatos(cs):
         if c.get('email') or c.get('telefone') or c.get('whatsapp'):
             out.append(c)
     return out
+
+
+def baixar(c):
+    """Como T.baixar, mas tenta também http://www. (vários sites só respondem assim)."""
+    from urllib.parse import urljoin
+    s = requests.Session()
+    s.headers.update({'User-Agent': ES.UA})
+    site = c['site']
+    paginas, final = [], None
+    for base in (f'https://www.{site}', f'https://{site}', f'http://www.{site}', f'http://{site}'):
+        h, f = ES.baixar(s, base)
+        if h:
+            paginas.append((f, h))
+            final = f
+            break
+    if not paginas:
+        return c, [], None
+    links = set(ES.extrair(paginas[0][1], final)[4])
+    mesmo = [l for l in links if ES.dominio_base(l) == ES.dominio_base(final) and EC.LINKS_UTEIS.search(l)]
+    vistos = set()
+    for l in mesmo + [urljoin(final, p) for p in T.CAMINHOS]:
+        if len(paginas) >= 12:
+            break
+        if l in vistos:
+            continue
+        vistos.add(l)
+        h, f = ES.baixar(s, l)
+        if h and f not in {p[0] for p in paginas}:
+            paginas.append((f, h))
+    return c, paginas, final
 
 
 def processar(args):
@@ -192,7 +222,7 @@ def cmd_coletar(cands, saida):
         if p[0] and p[1] and not l.startswith('#'):
             cs.append({'nome': p[0], 'site': re.sub(r'^https?://(www\.)?|/.*$', '', p[1].lower()), 'cidade': p[2] or None, 'uf': p[3] or None})
     with ThreadPoolExecutor(8) as ex:
-        baixados = list(ex.map(T.baixar, cs))
+        baixados = list(ex.map(baixar, cs))
     res = []
     for i, b in enumerate(baixados, 1):
         r = processar(b)
@@ -258,6 +288,7 @@ def cmd_sql(arq, minimo=0):
             continue
         if not (r.get('email') or r.get('whatsapp') or r.get('telefone')) or r.get('score', 0) < int(minimo) or r.get('excluir'):
             continue
+        r['contatos'] = [c for c in r['contatos'] if not re.match(r'(dp|rh|financeiro|fiscal|nfe|cobranca|contabil\w*)@', c.get('email') or '')]
         cs = [{k: v for k, v in c.items() if k != 'manual'} | {'data': DATA, 'fonte': re.sub(r'^https?://(www\.)?', '', c.get('fonte', ''))[:90]}
               for c in sorted(r['contatos'], key=lambda c: -EC.RANK[c['tipo']])[:6]]
         end = ' '.join(x for x in (ci.get('logradouro'), ci.get('numero')) if x).title() or None

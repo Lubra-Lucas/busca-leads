@@ -152,6 +152,18 @@ Onda 2 de captação (21/10/2026, 5 agentes em paralelo; `extras.onda = 'onda2_2
 - Base depois da onda 2: **1.946 leads ativos, 350 sem contato**. Instagram público ficou bloqueado (429) nesta
   máquina durante a onda; maquiadores e micro de SP precisam de Instagram logado ou ferramenta paga para crescer.
 
+Rodada de enriquecimento + fornecedores (21/10/2026, tarde):
+- Influenciadoras/maquiadores: 22 ganharam contato pela descrição do YouTube, bio do TikTok e sites
+  (Bruna Marquezine, Camila Pudim, Ana Hickmann, Natalia Beauty, Thássia Naves…); 101 seguem sem contato.
+  Script: `scripts/enriquecer_influenciadoras_youtube.py` (lê a aba "Sobre" via API interna youtubei).
+- Empresas existentes: 18 saíram do "sem contato", 4 subiram de SAC para comercial, 69 sites preenchidos,
+  CNPJs suspeitos conferidos (`extras.correcao`). Script: `scripts/enriquecer_empresas.py`.
+- Fornecedores novos: **106 de embalagens** (85 SP; destaques para estojo compacto: Kilimplast, Plano, Bigaplast,
+  Irafon, Thomriss, Bristol e Pivaudran, Incom; 26 com contato vindo do Guia ABRE — validar) e **41 de insumos**
+  (35 SP; Império das Essências, Forscher, Bianquímica, Adrivan, Kobo, Sensient). Scripts: `scripts/onda2_embalagens.py`,
+  `scripts/onda2_insumos.py`. Grandes distribuidoras (Brenntag, Oxiteno, Volp, Fagron, BASF, Croda) ficaram sem contato.
+- Base agora: **2.093 leads ativos, 308 sem contato, 169 fornecedores**.
+
 Pendências / próximos passos sugeridos (confirmar com a usuária antes):
 1. **121 influenciadoras sem contato**, incluindo as maiores (Anitta, Bruna Marquezine, Viih Tube, Sabrina Sato,
    Camila Coelho, Thássia Naves…). O contato está na bio do Instagram (exige login) ou com as assessorias.
