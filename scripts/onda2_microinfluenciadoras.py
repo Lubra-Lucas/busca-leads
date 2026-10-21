@@ -23,7 +23,7 @@ FONTE = 'Busca onda 2 – microinfluenciadoras'
 EMAIL = re.compile(r'[\w.+-]+@[\w-]+(?:\.[\w-]+)+', re.I)
 CIDADES = ['são-paulo', 'rio-de-janeiro', 'belo-horizonte', 'brasília', 'salvador', 'fortaleza']  # só estas têm página completa
 CATEGORIAS = ['beauty', 'beauty/affiliates', 'micro', 'micro/affiliates', 'fashion', 'fashion/affiliates', 'fitness',
-              'fitness/affiliates', 'food', 'affiliates', '']
+              'fitness/affiliates', 'food', 'food/affiliates', 'mom', 'affiliates', '']
 # a página traz os perfis em dois formatos: JS (fullName:"..",bio:`..`) e JSON ("fullName":"..","bio":"..")
 BLOCO = re.compile(r'"?fullName"?:')
 CAMPO_NOME = re.compile(r'^\s*"((?:[^"\\]|\\.)*)"')
@@ -107,40 +107,41 @@ def q(v):
 
 
 def sql(entrada, saida):
-    """Cada item revisado: nome, instagram, seguidores, emails, [whatsapp, telefone, agencia, cidade, subsegmento, nichos,
-    plataforma, seguidores_origem, fonte_url, tiktok_perfil]."""
+    """Cada item revisado: nome, instagram, seguidores, emails, [whatsapp, telefone, agencia, cidade, uf, subsegmento, nichos,
+    plataforma, seguidores_origem, fonte_url, tiktok_perfil]. Gera SQL compacto (constantes do extras montadas no banco)."""
     linhas = []
     for c in json.load(open(entrada)):
-        contatos = [{'nome': c.get('agencia') or c['nome'], 'cargo': 'Agência' if c.get('agencia') else 'Influenciadora',
-                     'email': e, 'tipo': 'agencia' if c.get('agencia') else 'direto', 'fonte': 'bio do perfil público',
-                     'data': DATA} for e in c['emails']]
+        ag = c.get('agencia')
+        contatos = [{'nome': ag or c['nome'], 'cargo': 'Agência' if ag else 'Influenciadora', 'email': e,
+                     'tipo': 'agencia' if ag else 'direto', 'fonte': 'bio do perfil público', 'data': DATA} for e in c['emails']]
         if c.get('whatsapp'):
             contatos.append({'nome': c['nome'], 'whatsapp': c['whatsapp'], 'tipo': 'direto', 'fonte': 'bio do perfil público', 'data': DATA})
         seg, nichos = c['seguidores'], c.get('nichos') or ['Lifestyle']
-        score = 40 + (25 if c['emails'] else 20) + (15 if c.get('agencia') else 0)
+        score = 40 + (25 if c['emails'] else 20) + (15 if ag else 0)
         score += 10 if seg >= 100000 else 5 if seg >= 30000 else 0
         score += 10 if nichos[0] in ('Maquiagem', 'Skincare', 'Cabelo', 'Unhas') else 0
         score += 5 if c.get('uf') == 'SP' else 0
-        extras = {'nichos': nichos, 'nicho_principal': nichos[0], 'contatos': contatos,
-                  'contato_qualidade': 'agencia' if c.get('agencia') else 'direto',
-                  'seguidores_fonte': {'origem': c.get('seguidores_origem', 'Modash (Instagram)'), 'data': DATA},
-                  'plataforma': c.get('plataforma', 'Instagram'), 'onda': 'onda2_2026-10-21'}
-        if c.get('tiktok_perfil'):
-            t = c['tiktok_perfil']
-            extras['tiktok_perfil'] = {'seguidores': t['seguidores'], 'verificado': t['verificado'],
-                                       'tiktok_shop': t['tiktok_shop'], 'link_bio': t['link_bio'], 'data': DATA}
-        tt = c['tiktok_perfil']['handle'] if c.get('tiktok_perfil') else None
+        t = c.get('tiktok_perfil')
+        ttj = json.dumps({'seguidores': t['seguidores'], 'verificado': t['verificado'], 'tiktok_shop': t['tiktok_shop'],
+                          'link_bio': t['link_bio'], 'data': DATA}, ensure_ascii=False, separators=(',', ':')) if t else None
         linhas.append('(' + ', '.join([
-            q(c['nome']), q(c['instagram'].lower()), q(tt), str(seg), q(min(score, 90)), q(c['emails'][0] if c['emails'] else None),
-            q(c.get('whatsapp')), q(c.get('telefone')), q(c.get('agencia')), q(c.get('cidade')), q('SP' if c.get('uf') == 'SP' else None),
-            q(c.get('subsegmento')), q(c.get('fonte_url')), q(json.dumps(extras, ensure_ascii=False))]) + ')')
+            q(c['nome']), q(c['instagram'].lower()), q(t['handle'] if t else None), str(seg), str(min(score, 90)),
+            q(c['emails'][0] if c['emails'] else None), q(c.get('whatsapp')), q(c.get('telefone')), q(ag),
+            q('Agência' if ag else None), q(c.get('cidade')), q(c.get('uf')), q(c.get('subsegmento')), q(c.get('fonte_url')),
+            q('|'.join(nichos)), q(c.get('seguidores_origem', 'Modash (Instagram)')), q(c.get('plataforma', 'Instagram')),
+            q('agencia' if ag else 'direto'), q(json.dumps(contatos, ensure_ascii=False, separators=(',', ':'))), q(ttj)]) + ')')
     cab = ("insert into leads (tipo, segmento_id, status, fonte, nome, instagram, tiktok, seguidores, score, email, whatsapp, telefone, "
-           "contato_nome, cidade, uf, subsegmento, fonte_url, extras)\nselect 'cliente','influenciadora','novo'," + q(FONTE) +
-           ", v.nome, v.ig, v.tt, v.seg, v.score::int, v.email, v.wa, v.tel, v.cn, v.cidade, v.uf, v.sub, v.url, v.extras::jsonb\n"
+           "contato_nome, contato_cargo, cidade, uf, subsegmento, fonte_url, extras)\n"
+           "select 'cliente','influenciadora','novo'," + q(FONTE) + ", v.nome, v.ig, v.tt, v.seg, v.score, v.email, v.wa, v.tel, v.cn, "
+           "v.cargo, v.cidade, v.uf, v.sub, v.url,\n"
+           "  jsonb_build_object('nichos', to_jsonb(string_to_array(v.nichos,'|')), 'nicho_principal', split_part(v.nichos,'|',1),\n"
+           "    'contatos', v.contatos::jsonb, 'contato_qualidade', v.cq, 'seguidores_fonte', jsonb_build_object('origem', v.orig, 'data', '" + DATA + "'),\n"
+           "    'plataforma', v.plat, 'onda', 'onda2_" + DATA + "')\n"
+           "  || case when v.ttj is null then '{}'::jsonb else jsonb_build_object('tiktok_perfil', v.ttj::jsonb) end\n"
            "from (values\n")
-    rod = ("\n) as v(nome, ig, tt, seg, score, email, wa, tel, cn, cidade, uf, sub, url, extras)\n"
+    rod = ("\n) as v(nome, ig, tt, seg, score, email, wa, tel, cn, cargo, cidade, uf, sub, url, nichos, orig, plat, cq, contatos, ttj)\n"
            "where not exists (select 1 from leads l where lower(l.instagram)=v.ig or (v.tt is not null and lower(l.tiktok)=v.tt))\n"
-           "on conflict do nothing;")
+           "on conflict do nothing returning nome;")
     open(saida, 'w').write(cab + ',\n'.join(linhas) + rod)
 
 

@@ -140,7 +140,8 @@ def cmd_bing(consultas, saida):
 
 
 MAPA_CAT = {'maquiagem': 'Maquiagem', 'cilios': 'Maquiagem', 'skincare': 'Skincare', 'protecao-solar-e-bronzeadores': 'Skincare',
-            'cabelos': 'Cabelo', 'unhas': 'Unhas', 'perfume': 'Perfumaria', 'barber': 'Barba e masculino'}
+            'cabelos': 'Cabelo', 'unhas': 'Unhas', 'perfume': 'Perfumaria', 'barber': 'Barba e masculino', 'sobrancelhas': 'Sobrancelhas', 'depilacao': 'Depilação',
+            'estetica': 'Skincare'}
 
 
 def baixar_feira(saida):
@@ -245,7 +246,9 @@ def coletar_um(c, paginas=None):
     if not paginas:
         return {**c, 'erro': 'site fora do ar'}
     home = paginas[0][1]
-    txt = texto_de(home)
+    txt = ' '.join(texto_de(h) for _, h in paginas[:3])
+    meta = ' '.join(re.findall(r'<(?:title|meta[^>]+(?:description|og:title)[^>]*)[^>]*>([^<]*)', home, re.I) + re.findall(r'content=["\']([^"\']{20,300})', home[:30000]))
+    txt += ' ' + meta
     if not c.get('nome'):
         lead['nome'] = nome_da_pagina(home, site)
     n_ret = len(set(m.lower() for m in VAREJISTA.findall(txt)))
@@ -254,7 +257,7 @@ def coletar_um(c, paginas=None):
     if PRIVATE.search(txt[:6000]):
         return {**c, 'erro': 'fabricante terceirizada (outro agente)'}
     cont = {k: len(re.findall(p, txt, re.I)) for k, p in TERMOS.items()}
-    if sum(cont.values()) < 4:
+    if sum(cont.values()) < 3:
         return {**c, 'erro': 'nao parece marca de beleza'}
     res = EC.analisar(lead, paginas)
     instas, tts = set(), set()
@@ -327,8 +330,10 @@ def montar_registro(r):
     pontos = min(pontos, 90)
     cats = [k.lower() for k, v in sorted(cont.items(), key=lambda kv: -kv[1]) if v >= 3]
     seg = 'tiktok_perfumaria' if sub == 'Perfumaria' else 'marca_indie'
-    insta = r.get('instagram') or (r['instas'] or [None])[0]
-    tk = (r['tiktoks'] or [None])[0]
+    ch = norm(re.sub(r'\b(cosm[eé]ticos?|brasil|professional|oficial)\b', '', r['nome'], flags=re.I))[:5] or norm(r['nome'])[:4]
+    ch = ch if len(ch) >= 4 else norm(r['nome'])[:4]
+    insta = r.get('instagram') or next((i for i in r['instas'] if ch in norm(i) or norm(r['site'].split('.')[0])[:5] in norm(i)), None)
+    tk = next((t for t in r['tiktoks'] if ch in norm(t)), None)
     extras = {'contatos': contatos, 'contato_qualidade': tipo, 'enriquecimento': r['paginas'], 'cnpj': r.get('cnpj'),
               'categorias_produto': cats, 'feira_categorias': r.get('feira_cats'), 'onda': 'onda2_2026-10-21'}
     if r.get('razao'):
