@@ -146,6 +146,8 @@ function Ficha({ lead, onClose }: { lead: Lead; onClose: () => void }) {
         {lead.endereco && <Linha rotulo="Endereço" icone={MapPin}><span className="whitespace-normal">{lead.endereco}</span></Linha>}
       </section>
 
+      <OutrosContatos contatos={lead.extras?.contatos as ContatoExtra[] | undefined} principal={lead.email} />
+
       <Detalhes extras={lead.extras ?? {}} />
 
       <section className="mt-6 space-y-2">
@@ -276,6 +278,52 @@ function Detalhes({ extras }: { extras: Record<string, unknown> }) {
           </ul>
         </div>
       )}
+    </section>
+  )
+}
+
+interface ContatoExtra {
+  nome?: string; cargo?: string; email?: string; telefone?: string; whatsapp?: string; linkedin?: string
+  tipo?: 'direto' | 'comercial' | 'agencia' | 'geral' | 'sac'; fonte?: string
+}
+
+const TIPO_CONTATO: Record<string, { nome: string; cor: string }> = {
+  direto: { nome: 'Direto', cor: 'bg-emerald-500/15 text-emerald-300' },
+  comercial: { nome: 'Comercial', cor: 'bg-garnet/15 text-garnet' },
+  agencia: { nome: 'Agência', cor: 'bg-sky-500/15 text-sky-300' },
+  geral: { nome: 'Geral', cor: 'bg-white/10 text-ink-soft' },
+  sac: { nome: 'SAC', cor: 'bg-white/5 text-ink-muted' },
+}
+
+function OutrosContatos({ contatos, principal }: { contatos?: ContatoExtra[]; principal?: string | null }) {
+  const lista = (contatos ?? []).filter((c) => c.email || c.telefone || c.whatsapp || c.linkedin)
+  if (!lista.length) return null
+  return (
+    <section className="mt-6 space-y-2">
+      <h3 className="text-xs font-medium uppercase tracking-wider text-ink-muted">Outros contatos</h3>
+      <ul className="space-y-1.5">
+        {lista.map((c, i) => {
+          const t = TIPO_CONTATO[c.tipo ?? 'geral'] ?? TIPO_CONTATO.geral
+          const fonte = c.fonte && /^https?:\/\//.test(c.fonte) ? c.fonte : undefined
+          return (
+            <li key={`${c.email ?? c.telefone ?? c.whatsapp ?? i}-${i}`} className="rounded-lg border border-white/10 bg-raised p-2.5 text-xs">
+              <div className="flex items-center justify-between gap-2">
+                <span className="min-w-0 truncate font-medium text-ink">
+                  {c.nome ? `${c.nome}${c.cargo ? ` · ${c.cargo}` : ''}` : c.cargo ?? 'Contato'}
+                </span>
+                <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${t.cor}`}>{t.nome}</span>
+              </div>
+              <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-ink-soft">
+                {c.email && <a className="inline-flex items-center gap-1 hover:text-garnet" href={`mailto:${c.email}`}><Mail size={11} />{c.email}{c.email === principal ? ' (principal)' : ''}</a>}
+                {c.whatsapp && <a className="inline-flex items-center gap-1 hover:text-garnet" href={whatsappUrl(c.whatsapp)} target="_blank" rel="noreferrer"><MessageCircle size={11} />{c.whatsapp}</a>}
+                {c.telefone && c.telefone !== c.whatsapp && <a className="inline-flex items-center gap-1 hover:text-garnet" href={`tel:${c.telefone}`}><Phone size={11} />{c.telefone}</a>}
+                {c.linkedin && <Externo href={urlDe(c.linkedin)}>LinkedIn</Externo>}
+                {fonte && <Externo href={fonte}>fonte</Externo>}
+              </div>
+            </li>
+          )
+        })}
+      </ul>
     </section>
   )
 }
