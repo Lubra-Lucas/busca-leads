@@ -1,0 +1,144 @@
+"""Onda 2: capta microinfluenciadoras (10 mil a 1 milhão) com contato fora de DM e gera o SQL de inserção.
+
+Uso (python3 -I scripts/onda2_microinfluenciadoras.py ...):
+  coletar <saida.json> [cidade/categoria ...]   baixa as páginas públicas da Modash (cidade x categoria) e extrai
+                                                 {nome, instagram, bio, seguidores, e-mails da bio}. Sem args: SP inteiro.
+  tiktok  <candidatos.json> <saida.json>        tenta o mesmo @ no TikTok (scripts/tiktok_shop.perfil); só aceita se o
+                                                 nome do perfil bate com o nome; soma e-mail da bio/link e seguidores.
+  sql     <revisados.json> <saida.sql>          gera INSERT ... ON CONFLICT DO NOTHING (rode pelo MCP/SQL editor).
+
+Regras: só entra quem tem e-mail/WhatsApp/telefone publicado pela própria pessoa (bio) ou pela agência. Nada de DM.
+Score = 40 + contato (e-mail 25, WhatsApp/tel 20, agência +15) + seguidores (100k–1M +10, 30k–100k +5) + beleza +10 + SP +5, teto 90.
+"""
+import json
+import re
+import subprocess
+import sys
+import time
+import unicodedata
+import urllib.parse
+
+DATA = '2026-10-21'
+FONTE = 'Busca onda 2 – microinfluenciadoras'
+EMAIL = re.compile(r'[\w.+-]+@[\w-]+(?:\.[\w-]+)+', re.I)
+CIDADES = ['são-paulo', 'rio-de-janeiro', 'belo-horizonte', 'brasília', 'salvador', 'fortaleza']  # só estas têm página completa
+CATEGORIAS = ['beauty', 'beauty/affiliates', 'micro', 'micro/affiliates', 'fashion', 'fashion/affiliates', 'fitness',
+              'fitness/affiliates', 'food', 'affiliates', '']
+# a página traz os perfis em dois formatos: JS (fullName:"..",bio:`..`) e JSON ("fullName":"..","bio":"..")
+PROFILE_JS = re.compile(r'fullName:"(.*?)",username:"(.*?)",bio:`(.*?)`,url:.*?followers:(\d+)', re.S)
+PROFILE_JSON = re.compile(r'"fullName":"(.*?)","username":"(.*?)","bio":("(?:[^"\\]|\\.)*"),"url":.*?"followers":(\d+)', re.S)
+
+
+def perfis(html):
+    for nome, user, bio, seg in PROFILE_JS.findall(html):
+        yield nome, user, bio, seg
+    for nome, user, bio, seg in PROFILE_JSON.findall(html):
+        try:
+            nome = json.loads('"' + nome + '"')
+            bio = json.loads(bio)
+        except ValueError:
+            pass
+        yield nome, user, bio, seg
+
+
+def baixar(url):
+    return subprocess.run(['curl', '-sL', '-m', '40', url], capture_output=True, text=True).stdout
+
+
+def emails_de(texto):
+    achados = [e.rstrip('.').lower() for e in EMAIL.findall(texto or '')]
+    return list(dict.fromkeys(e for e in achados if not e.endswith(('.png', '.jpg')) and '@modash' not in e))
+
+
+def coletar(saida, alvos):
+    alvos = alvos or [f'{c}/{k}'.rstrip('/') for c in CIDADES for k in CATEGORIAS]
+    achados = {}
+    for alvo in alvos:
+        cidade = alvo.split('/')[0]
+        html = baixar('https://www.modash.io/find-influencers/brazil/' + urllib.parse.quote(alvo))
+        n = 0
+        for nome, user, bio, seg in perfis(html):
+            n += 1
+            ig = user.lower()
+            if ig not in achados:
+                achados[ig] = {'nome': nome, 'instagram': '@' + ig, 'bio': bio, 'seguidores': int(seg),
+                               'emails': emails_de(bio), 'alvo': alvo}
+        print(alvo, n, file=sys.stderr)
+        time.sleep(1)
+    json.dump(list(achados.values()), open(saida, 'w'), ensure_ascii=False, indent=1)
+
+
+def norm(s):
+    s = unicodedata.normalize('NFKD', str(s or '')).encode('ascii', 'ignore').decode().lower()
+    return re.sub(r'[^a-z0-9]', '', s)
+
+
+def tiktok(entrada, saida):
+    sys.path.insert(0, __file__.rsplit('/', 1)[0])
+    import tiktok_shop
+    lista = json.load(open(entrada))
+    for c in lista:
+        p = tiktok_shop.perfil(c['instagram'].lstrip('@'), tentativas=2)
+        time.sleep(1)
+        if p and 'erro' not in p:
+            a, b = norm(c['nome']), norm(p['nome_perfil'])
+            if (a[:6] and a[:6] in b) or (b[:6] and b[:6] in a) or norm(c['instagram']) == norm(p['handle']) and a[:4] in b:
+                c['tiktok_perfil'] = p
+                c['emails'] = list(dict.fromkeys(c['emails'] + emails_de(p['bio'])))
+    json.dump(lista, open(saida, 'w'), ensure_ascii=False, indent=1)
+
+
+def q(v):
+    if v is None:
+        return 'null'
+    return "'" + str(v).replace("'", "''") + "'"
+
+
+def sql(entrada, saida):
+    """Cada item revisado: nome, instagram, seguidores, emails, [whatsapp, telefone, agencia, cidade, subsegmento, nichos,
+    plataforma, seguidores_origem, fonte_url, tiktok_perfil]."""
+    linhas = []
+    for c in json.load(open(entrada)):
+        contatos = [{'nome': c.get('agencia') or c['nome'], 'cargo': 'Agência' if c.get('agencia') else 'Influenciadora',
+                     'email': e, 'tipo': 'agencia' if c.get('agencia') else 'direto', 'fonte': 'bio do perfil público',
+                     'data': DATA} for e in c['emails']]
+        if c.get('whatsapp'):
+            contatos.append({'nome': c['nome'], 'whatsapp': c['whatsapp'], 'tipo': 'direto', 'fonte': 'bio do perfil público', 'data': DATA})
+        seg, nichos = c['seguidores'], c.get('nichos') or ['Lifestyle']
+        score = 40 + (25 if c['emails'] else 20) + (15 if c.get('agencia') else 0)
+        score += 10 if seg >= 100000 else 5 if seg >= 30000 else 0
+        score += 10 if nichos[0] in ('Maquiagem', 'Skincare', 'Cabelo', 'Unhas') else 0
+        score += 5 if c.get('uf') == 'SP' else 0
+        extras = {'nichos': nichos, 'nicho_principal': nichos[0], 'contatos': contatos,
+                  'contato_qualidade': 'agencia' if c.get('agencia') else 'direto',
+                  'seguidores_fonte': {'origem': c.get('seguidores_origem', 'Modash (Instagram)'), 'data': DATA},
+                  'plataforma': c.get('plataforma', 'Instagram'), 'onda': 'onda2_2026-10-21'}
+        if c.get('tiktok_perfil'):
+            t = c['tiktok_perfil']
+            extras['tiktok_perfil'] = {'seguidores': t['seguidores'], 'verificado': t['verificado'],
+                                       'tiktok_shop': t['tiktok_shop'], 'link_bio': t['link_bio'], 'data': DATA}
+        tt = c['tiktok_perfil']['handle'] if c.get('tiktok_perfil') else None
+        linhas.append('(' + ', '.join([
+            q(c['nome']), q(c['instagram'].lower()), q(tt), str(seg), q(min(score, 90)), q(c['emails'][0] if c['emails'] else None),
+            q(c.get('whatsapp')), q(c.get('telefone')), q(c.get('agencia')), q(c.get('cidade')), q('SP' if c.get('uf') == 'SP' else None),
+            q(c.get('subsegmento')), q(c.get('fonte_url')), q(json.dumps(extras, ensure_ascii=False))]) + ')')
+    cab = ("insert into leads (tipo, segmento_id, status, fonte, nome, instagram, tiktok, seguidores, score, email, whatsapp, telefone, "
+           "contato_nome, cidade, uf, subsegmento, fonte_url, extras)\nselect 'cliente','influenciadora','novo'," + q(FONTE) +
+           ", v.nome, v.ig, v.tt, v.seg, v.score::int, v.email, v.wa, v.tel, v.cn, v.cidade, v.uf, v.sub, v.url, v.extras::jsonb\n"
+           "from (values\n")
+    rod = ("\n) as v(nome, ig, tt, seg, score, email, wa, tel, cn, cidade, uf, sub, url, extras)\n"
+           "where not exists (select 1 from leads l where lower(l.instagram)=v.ig or (v.tt is not null and lower(l.tiktok)=v.tt))\n"
+           "on conflict do nothing;")
+    open(saida, 'w').write(cab + ',\n'.join(linhas) + rod)
+
+
+if __name__ == '__main__':
+    cmd, args = (sys.argv[1] if len(sys.argv) > 1 else ''), sys.argv[2:]
+    if cmd == 'coletar' and args:
+        coletar(args[0], args[1:])
+    elif cmd == 'tiktok' and len(args) == 2:
+        tiktok(*args)
+    elif cmd == 'sql' and len(args) == 2:
+        sql(*args)
+    else:
+        print(__doc__)
