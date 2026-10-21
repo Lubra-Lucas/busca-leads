@@ -43,7 +43,7 @@ T.CAMINHOS += ['/estojos', '/estojo', '/maquiagem', '/cosmeticos', '/catalogo', 
                '/orcamento-online', '/solicitar-orcamento', '/representantes', '/fale-com-a-gente', '/atendimento']
 
 PRODUTOS = [
-    ('estojo compacto', r'estojos? (?:para |de )?(?:p[oó]s? )?compact|p[oó]s? compact\w*|compactos? (?:vazio|para p[oó])|base compacta|compact case|pan(?:cake)?'),
+    ('estojo compacto', r'estojos? (?:para |de )?(?:p[oó]s? )?compact|p[oó]s? compact\w*|compactos? (?:vazio|para p[oó])|base compacta|compact case|pancake'),
     ('estojo', r'\bestojos?\b'), ('paleta de sombra', r'paletas?(?: de| para)? (?:sombra|maquiagem)|palete de sombra|quarteto|estojo (?:para )?sombra'),
     ('godê', r'god[eê]s?\b|godets?|\bpans?\b (?:de|para) (?:sombra|blush|alum)'), ('espelho', r'espelhos? (?:para|de) (?:estojo|compact|bolsa)|estojo com espelho'),
     ('peneira', r'peneiras?|sifter'), ('pote para pó', r'pote (?:para |de )?p[oó]|loose powder|p[oó] solto'),
@@ -71,6 +71,21 @@ MINIMO = re.compile(r'((?:pedido|lote|quantidade|compra|produ[cç][aã]o)\s+m[i�
 ATIVAS = ('ATIVA',)
 
 
+def limpar_contatos(cs):
+    """Tira números de exemplo (123456789), e-mails com %20 e duplicatas."""
+    out = []
+    for c in cs:
+        c = dict(c)
+        if c.get('email'):
+            c['email'] = re.sub(r'^(?:%20|\s)+', '', c['email'])
+        for k in ('telefone', 'whatsapp'):
+            if c.get(k) and re.search(r'123456789|987654321|0000000', c[k]):
+                c.pop(k)
+        if c.get('email') or c.get('telefone') or c.get('whatsapp'):
+            out.append(c)
+    return out
+
+
 def processar(args):
     c, paginas, final = args
     nome = c['nome']
@@ -81,7 +96,12 @@ def processar(args):
     lead = {'chave': c['site'], 'nome': nome, 'site': c['site'], 'email_atual': None}
     a = EC.analisar(lead, paginas)
     r.update({k: a.get(k) for k in ('email', 'whatsapp', 'telefone', 'contato_nome', 'contato_cargo', 'qualidade')})
-    r['contatos'] = a['contatos']
+    r['contatos'] = limpar_contatos(a['contatos'])
+    for k in ('email', 'whatsapp', 'telefone'):
+        if r.get(k) and not any(c.get(k) == r[k] for c in r['contatos']) and k != 'email':
+            r[k] = next((c[k] for c in r['contatos'] if c.get(k)), None)
+    if r.get('email') and not any(c.get('email') == r['email'] for c in r['contatos']):
+        r['email'] = next((c['email'] for c in r['contatos'] if c.get('email')), None)
     texto = ' '.join(T.limpa(h) for _, h in paginas)
     r['cosm'] = len(COSM.findall(texto))
     r['embal'] = len(EMBAL.findall(texto))
