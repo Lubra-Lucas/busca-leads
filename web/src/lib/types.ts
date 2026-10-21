@@ -17,6 +17,8 @@ export interface Segmento {
   tipo: LeadTipo
   nome: string
   descricao: string | null
+  categoria: string | null
+  ordem: number | null
 }
 
 export interface Lead {

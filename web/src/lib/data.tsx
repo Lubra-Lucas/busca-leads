@@ -36,7 +36,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setCarregando(true)
     const [l, s] = await Promise.all([
       buscarTodos(),
-      supabase.from('segmentos').select('*').order('tipo').order('nome'),
+      supabase.from('segmentos').select('*').order('ordem').order('nome'),
     ])
     setErro(l.erro ?? s.error?.message ?? null)
     setLeads(l.dados)

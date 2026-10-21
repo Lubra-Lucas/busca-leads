@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { AnimatePresence, motion } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { ArrowDown, Briefcase, ShoppingBag, ChevronLeft, ChevronRight, Download, Mail, MessageCircle, Phone, Search, X } from 'lucide-react'
+import CategoriaNav, { agruparCategorias } from '../components/CategoriaNav'
 import LeadDrawer from '../components/LeadDrawer'
 import { useData } from '../lib/data'
 import { STATUS, TIPO_NOME, temContato, vendeNoTikTokShop, type Lead, type LeadTipo } from '../lib/types'
@@ -30,6 +31,7 @@ export default function Leads() {
   const f = {
     q: params.get('q') ?? '',
     tipo: (params.get('tipo') ?? '') as '' | LeadTipo,
+    cat: params.get('cat') ?? '',
     segmento: params.get('segmento') ?? '',
     status: params.get('status') ?? '',
     uf: params.get('uf') ?? '',
@@ -45,8 +47,9 @@ export default function Leads() {
     const p = new URLSearchParams(params)
     if (valor) p.set(campo, valor)
     else p.delete(campo)
-    if (campo === 'tipo') p.delete('segmento')
-    if (campo === 'tipo' || campo === 'segmento') p.delete('ordem')
+    if (campo === 'tipo') { p.delete('cat'); p.delete('segmento') }
+    if (campo === 'cat') p.delete('segmento')
+    if (campo === 'tipo' || campo === 'cat' || campo === 'segmento') p.delete('ordem')
     setParams(p, { replace: campo === 'q' })
   }
 
@@ -55,17 +58,19 @@ export default function Leads() {
     () => [...new Set(leads.filter((l) => !f.uf || l.uf === f.uf).map((l) => l.cidade).filter(Boolean))].sort() as string[],
     [leads, f.uf],
   )
-  const segsVisiveis = segmentos.filter((s) => !f.tipo || s.tipo === f.tipo)
-  const nomeSeg = (id: string) => segmentos.find((s) => s.id === id)?.nome ?? id
+  const segInfo = useMemo(() => Object.fromEntries(segmentos.map((s) => [s.id, s])), [segmentos])
+  const categorias = useMemo(() => agruparCategorias(segmentos.filter((s) => !f.tipo || s.tipo === f.tipo)), [segmentos, f.tipo])
+  const nomeSeg = (id: string) => segInfo[id]?.nome ?? id
+  const catDe = (id: string) => segInfo[id]?.categoria ?? segInfo[id]?.nome ?? ''
   // filtrando influenciadoras, a coluna de segmento seria repetida: mostra seguidores no lugar
   const verSeguidores = f.segmento === 'influenciadora'
 
-  const filtrados = useMemo(() => {
+  // todos os filtros, menos categoria e segmento: serve para as contagens dos cartões
+  const base = useMemo(() => {
     const q = f.q.trim().toLowerCase()
-    const lista = leads.filter(
+    return leads.filter(
       (l) =>
         (!f.tipo || l.tipo === f.tipo) &&
-        (!f.segmento || l.segmento_id === f.segmento) &&
         (!f.status || l.status === f.status) &&
         (!f.uf || l.uf === f.uf) &&
         (!f.cidade || l.cidade === f.cidade) &&
@@ -75,11 +80,26 @@ export default function Leads() {
         (!q || [l.nome, l.contato_nome, l.observacoes, l.cidade, l.bairro, l.instagram, l.tiktok, l.email, l.subsegmento]
           .some((v) => v?.toLowerCase().includes(q))),
     )
+  }, [leads, f.q, f.tipo, f.status, f.uf, f.cidade, f.scoreMin, f.contato, f.tiktokShop])
+
+  const contagem = useMemo(() => {
+    const c: Record<string, number> = {}
+    for (const l of base) c[l.segmento_id] = (c[l.segmento_id] ?? 0) + 1
+    return c
+  }, [base])
+
+  const filtrados = useMemo(() => {
+    const lista = base.filter((l) => (!f.cat || catDe(l.segmento_id) === f.cat) && (!f.segmento || l.segmento_id === f.segmento))
     const chave = ORDENS[f.ordem]
-    if (!chave) return lista
     // maior primeiro; quem não tem o número vai para o fim
-    return [...lista].sort((a, b) => (chave(b) ?? -1) - (chave(a) ?? -1))
-  }, [leads, f.q, f.tipo, f.segmento, f.status, f.uf, f.cidade, f.scoreMin, f.contato, f.tiktokShop, f.ordem])
+    if (chave) return [...lista].sort((a, b) => (chave(b) ?? -1) - (chave(a) ?? -1))
+    // em blocos: categoria/segmento na ordem definida no banco e, dentro de cada bloco, maior score primeiro
+    return [...lista].sort((a, b) =>
+      (segInfo[a.segmento_id]?.ordem ?? 999) - (segInfo[b.segmento_id]?.ordem ?? 999) || (b.score ?? 0) - (a.score ?? 0))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [base, f.cat, f.segmento, f.ordem, segInfo])
+  const emBlocos = !ORDENS[f.ordem]
+  const totalTipo = (t: string) => leads.filter((l) => !t || l.tipo === t).length
 
   const [pagina, setPagina] = useState(0)
   useEffect(() => setPagina(0), [filtrados])
@@ -116,25 +136,30 @@ export default function Leads() {
               f.tiktokShop ? 'border-garnet bg-garnet/15 text-ink' : 'border-white/10 bg-raised text-ink-muted hover:text-ink'}`}>
             <ShoppingBag size={14} /> TikTok Shop
           </button>
-          <div className="flex rounded-lg border border-white/10 bg-raised p-0.5">
+          <div className="flex max-w-full overflow-x-auto rounded-lg border border-white/10 bg-raised p-0.5">
             {TIPOS.map((t) => (
               <button key={t.id} onClick={() => set('tipo', t.id)}
-                className={`relative rounded-md px-3 py-1.5 text-sm transition ${f.tipo === t.id ? 'text-ink' : 'text-ink-muted hover:text-ink'}`}>
+                className={`relative whitespace-nowrap rounded-md px-3 py-1.5 text-sm transition ${f.tipo === t.id ? 'text-ink' : 'text-ink-muted hover:text-ink'}`}>
                 {f.tipo === t.id && (
                   <motion.span layoutId="tipo-ativo" className="absolute inset-0 rounded-md bg-white/10"
                     transition={{ type: 'spring', stiffness: 400, damping: 32 }} />
                 )}
-                <span className="relative">{t.nome}</span>
+                <span className="relative">{t.nome} <span className="tabular text-xs opacity-60">{nf.format(totalTipo(t.id))}</span></span>
               </button>
             ))}
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
-          <select className="input" value={f.segmento} onChange={(e) => set('segmento', e.target.value)}>
-            <option value="">Todos os segmentos</option>
-            {segsVisiveis.map((s) => <option key={s.id} value={s.id}>{s.nome}</option>)}
-          </select>
+        <CategoriaNav categorias={categorias} contagem={contagem} cat={f.cat} segmento={f.segmento} mostrarTipo={!f.tipo}
+          onCategoria={(c) => set('cat', c)}
+          onSegmento={(c, id) => {
+            const p = new URLSearchParams(params)
+            p.delete('ordem')
+            if (id) { p.set('cat', c); p.set('segmento', id) } else p.delete('segmento')
+            setParams(p)
+          }} />
+
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
           <select className="input" value={f.status} onChange={(e) => set('status', e.target.value)}>
             <option value="">Todos os status</option>
             {STATUS.map((s) => <option key={s.id} value={s.id}>{s.nome}</option>)}
@@ -189,9 +214,20 @@ export default function Leads() {
               </tr>
             </thead>
             <tbody>
-              <AnimatePresence initial={false} mode="popLayout">
-                {visiveis.map((l) => (
-                  <motion.tr key={l.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                {visiveis.map((l, i) => (
+                  <Fragment key={l.id}>
+                  {emBlocos && (i === 0 || visiveis[i - 1].segmento_id !== l.segmento_id) && (
+                    <tr className="border-b border-white/10 bg-white/[0.03]">
+                      <td colSpan={6} className="px-4 py-2">
+                        <span className="text-[11px] font-medium uppercase tracking-wider text-ink-muted">{catDe(l.segmento_id)}</span>
+                        {catDe(l.segmento_id) !== nomeSeg(l.segmento_id) && (
+                          <span className="text-[11px] uppercase tracking-wider text-ink-muted"> · {nomeSeg(l.segmento_id)}</span>
+                        )}
+                        <span className="tabular ml-2 text-[11px] text-ink-muted/70">{nf.format(contagem[l.segmento_id] ?? 0)}</span>
+                      </td>
+                    </tr>
+                  )}
+                  <motion.tr initial={{ opacity: 0 }} animate={{ opacity: 1 }}
                     onClick={() => set('lead', l.id)}
                     className="cursor-pointer border-b border-white/5 transition hover:bg-white/[0.03]">
                     <td className="px-4 py-3">
@@ -238,8 +274,8 @@ export default function Leads() {
                     </td>
                     <td className={`tabular px-4 py-3 text-right font-semibold ${scoreTom(l.score)}`}>{l.score ?? '—'}</td>
                   </motion.tr>
+                  </Fragment>
                 ))}
-              </AnimatePresence>
             </tbody>
           </table>
           {!filtrados.length && <p className="p-8 text-center text-sm text-ink-muted">Nenhum lead com esses filtros.</p>}
