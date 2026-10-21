@@ -1,8 +1,9 @@
 import { Fragment, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { ArrowDown, AtSign, Briefcase, Check, ShoppingBag, ChevronLeft, ChevronRight, Download, Mail, MessageCircle, Music2, Phone, Search, Star, StickyNote, X, type LucideIcon } from 'lucide-react'
+import { ArrowDown, AtSign, Briefcase, Check, ChevronLeft, ChevronRight, CircleDot, Download, Gauge, Mail, MapPin, MessageCircle, Music2, Phone, Search, ShoppingBag, Star, StickyNote, X, type LucideIcon } from 'lucide-react'
 import CategoriaNav, { agruparCategorias } from '../components/CategoriaNav'
+import FiltroPopover, { ListaOpcoes } from '../components/FiltroPopover'
 import LeadDrawer from '../components/LeadDrawer'
 import NichoFiltro from '../components/NichoFiltro'
 import StatusBadge from '../components/StatusBadge'
@@ -58,93 +59,82 @@ export default function Leads() {
     else p.delete(campo)
     if (campo === 'tipo') { p.delete('cat'); p.delete('segmento') }
     if (campo === 'cat') p.delete('segmento')
-    if (campo === 'tipo' || campo === 'cat' || campo === 'segmento') p.delete('ordem')
+    if (campo === 'tipo' || campo === 'cat' || campo === 'segmento') { p.delete('ordem'); p.delete('nichos') }
+    if (campo === 'uf') p.delete('cidade')
     setParams(p, { replace: campo === 'q' })
   }
 
-  const ufs = useMemo(() => [...new Set(leads.map((l) => l.uf).filter(Boolean))].sort() as string[], [leads])
-  const cidades = useMemo(
-    () => [...new Set(leads.filter((l) => !f.uf || l.uf === f.uf).map((l) => l.cidade).filter(Boolean))].sort() as string[],
-    [leads, f.uf],
-  )
   const segInfo = useMemo(() => Object.fromEntries(segmentos.map((s) => [s.id, s])), [segmentos])
   const categorias = useMemo(() => agruparCategorias(segmentos.filter((s) => !f.tipo || s.tipo === f.tipo)), [segmentos, f.tipo])
   const nomeSeg = (id: string) => segInfo[id]?.nome ?? id
   const catDe = (id: string) => segInfo[id]?.categoria ?? segInfo[id]?.nome ?? ''
+  const catAtual = categorias.find((c) => c.nome === f.cat)
   // filtrando influenciadoras, a coluna de segmento seria repetida: mostra seguidores no lugar
   const verSeguidores = f.segmento === 'influenciadora'
-  // filtro de nicho só faz sentido na lista de influenciadoras
-  const verNichos = verSeguidores || f.cat === 'Influência'
+  // nicho é o passo seguinte a escolher "Influenciadoras"
+  const verNichos = verSeguidores
   const nichosAtivos = verNichos ? f.nichos : []
 
-  // todos os filtros, menos categoria e segmento: serve para as contagens dos cartões
-  const base = useMemo(() => {
+  // um filtro só, com a opção de ignorar alguns campos (para as contagens de cada controle)
+  const chave = [...params].filter(([k]) => k !== 'lead').map((x) => x.join('=')).join('&')
+  const passa = useMemo(() => {
     const q = f.q.trim().toLowerCase()
-    return leads.filter(
-      (l) =>
-        (!f.tipo || l.tipo === f.tipo) &&
-        (!f.status || l.status === f.status) &&
-        (!f.fase || faseDe(l.status) === f.fase) &&
-        (!f.uf || l.uf === f.uf) &&
-        (!f.cidade || l.cidade === f.cidade) &&
+    return (l: Lead, sem: string[] = []) => {
+      const usa = (c: string) => !sem.includes(c)
+      return (!f.tipo || l.tipo === f.tipo) &&
+        (!usa('status') || !f.status || l.status === f.status) &&
+        (!usa('fase') || !f.fase || faseDe(l.status) === f.fase) &&
+        (!usa('uf') || !f.uf || l.uf === f.uf) &&
+        (!usa('cidade') || !f.cidade || l.cidade === f.cidade) &&
         (l.score ?? 0) >= f.scoreMin &&
         (!f.contato || temContato(l)) &&
         (!f.tiktokShop || vendeNoTikTokShop(l)) &&
         (!f.salvos || favoritos.has(l.id)) &&
+        (!usa('cat') || !f.cat || catDe(l.segmento_id) === f.cat) &&
+        (!usa('segmento') || !f.segmento || l.segmento_id === f.segmento) &&
+        (!usa('nichos') || !nichosAtivos.length || temNichos(l, nichosAtivos)) &&
         (!q || [l.nome, l.contato_nome, l.observacoes, l.cidade, l.bairro, l.instagram, l.tiktok, l.email, l.subsegmento]
-          .some((v) => v?.toLowerCase().includes(q))),
-    )
-  }, [leads, favoritos, f.q, f.tipo, f.status, f.fase, f.uf, f.cidade, f.scoreMin, f.contato, f.tiktokShop, f.salvos])
+          .some((v) => v?.toLowerCase().includes(q)))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chave, favoritos, segInfo])
 
-  const contagem = useMemo(() => {
+  const contar = (lista: Lead[], campo: (l: Lead) => string | null) => {
     const c: Record<string, number> = {}
-    for (const l of base) c[l.segmento_id] = (c[l.segmento_id] ?? 0) + 1
+    for (const l of lista) { const k = campo(l); if (k) c[k] = (c[k] ?? 0) + 1 }
     return c
-  }, [base])
+  }
+
+  // cartões de categoria: tudo menos categoria, segmento e nicho
+  const contagem = useMemo(() => contar(leads.filter((l) => passa(l, ['cat', 'segmento', 'nichos'])), (l) => l.segmento_id), [leads, passa])
+  const contagemFase = useMemo(() => contar(leads.filter((l) => passa(l, ['fase'])), (l) => faseDe(l.status)), [leads, passa])
+  const totalFases = Object.values(contagemFase).reduce((a, b) => a + b, 0)
+  const paraNichos = useMemo(() => leads.filter((l) => passa(l, ['nichos'])), [leads, passa])
+  const opcoesStatus = useMemo(() => {
+    const c = contar(leads.filter((l) => passa(l, ['status'])), (l) => l.status)
+    return STATUS.map((s) => ({ id: s.id, nome: s.nome, qtd: c[s.id] ?? 0, ponto: PONTO_FASE[faseDe(s.id)] }))
+  }, [leads, passa])
+  const opcoesUf = useMemo(() => {
+    const c = contar(leads.filter((l) => passa(l, ['uf', 'cidade'])), (l) => l.uf)
+    return Object.entries(c).sort((a, b) => b[1] - a[1]).map(([id, qtd]) => ({ id, nome: id, qtd }))
+  }, [leads, passa])
+  const opcoesCidade = useMemo(() => {
+    const c = contar(leads.filter((l) => passa(l, ['cidade'])), (l) => l.cidade)
+    return Object.entries(c).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([id, qtd]) => ({ id, nome: id, qtd }))
+  }, [leads, passa])
 
   const filtrados = useMemo(() => {
-    const lista = base.filter((l) => (!f.cat || catDe(l.segmento_id) === f.cat) && (!f.segmento || l.segmento_id === f.segmento) &&
-      (!nichosAtivos.length || temNichos(l, nichosAtivos)))
-    const chave = ORDENS[f.ordem]
+    const lista = leads.filter((l) => passa(l))
+    const chaveOrdem = ORDENS[f.ordem]
     // nos salvos: os mexidos por último primeiro
-    if (f.salvos && !chave) return [...lista].sort((a, b) => (favoritos.get(b.id)?.updated_at ?? '').localeCompare(favoritos.get(a.id)?.updated_at ?? ''))
+    if (f.salvos && !chaveOrdem) return [...lista].sort((a, b) => (favoritos.get(b.id)?.updated_at ?? '').localeCompare(favoritos.get(a.id)?.updated_at ?? ''))
     // maior primeiro; quem não tem o número vai para o fim
-    if (chave) return [...lista].sort((a, b) => (chave(b) ?? -1) - (chave(a) ?? -1))
+    if (chaveOrdem) return [...lista].sort((a, b) => (chaveOrdem(b) ?? -1) - (chaveOrdem(a) ?? -1))
     // em blocos: categoria/segmento na ordem definida no banco e, dentro de cada bloco, maior score primeiro
     return [...lista].sort((a, b) =>
       (segInfo[a.segmento_id]?.ordem ?? 999) - (segInfo[b.segmento_id]?.ordem ?? 999) || (b.score ?? 0) - (a.score ?? 0))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [base, favoritos, f.salvos, f.cat, f.segmento, f.ordem, segInfo, nichosAtivos.join(',')])
-
-  // leads sem o filtro de fase e de nicho: base das contagens dos chips e do filtro de nicho
-  const semFase = useMemo(() => {
-    const q = f.q.trim().toLowerCase()
-    return leads.filter(
-      (l) =>
-        (!f.tipo || l.tipo === f.tipo) &&
-        (!f.status || l.status === f.status) &&
-        (!f.uf || l.uf === f.uf) &&
-        (!f.cidade || l.cidade === f.cidade) &&
-        (l.score ?? 0) >= f.scoreMin &&
-        (!f.contato || temContato(l)) &&
-        (!f.tiktokShop || vendeNoTikTokShop(l)) &&
-        (!f.salvos || favoritos.has(l.id)) &&
-        (!f.cat || catDe(l.segmento_id) === f.cat) && (!f.segmento || l.segmento_id === f.segmento) &&
-        (!q || [l.nome, l.contato_nome, l.observacoes, l.cidade, l.bairro, l.instagram, l.tiktok, l.email, l.subsegmento]
-          .some((v) => v?.toLowerCase().includes(q))),
-    )
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [leads, favoritos, f.q, f.tipo, f.status, f.uf, f.cidade, f.scoreMin, f.contato, f.tiktokShop, f.salvos, f.cat, f.segmento, segInfo])
-  // para o filtro de nicho: tudo menos o próprio nicho (inclui a fase)
-  const paraNichos = useMemo(() => semFase.filter((l) => !f.fase || faseDe(l.status) === f.fase), [semFase, f.fase])
-  const contagemFase = useMemo(() => {
-    const c: Record<string, number> = {}
-    for (const l of semFase) if (!nichosAtivos.length || temNichos(l, nichosAtivos)) c[faseDe(l.status)] = (c[faseDe(l.status)] ?? 0) + 1
-    return c
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [semFase, nichosAtivos.join(',')])
-  const totalFases = Object.values(contagemFase).reduce((a, b) => a + b, 0)
-  const emBlocos = !ORDENS[f.ordem] && !f.salvos
+  }, [leads, passa, favoritos, f.salvos, f.ordem, segInfo])
+  const emBlocos = !ORDENS[f.ordem] && !f.salvos && !f.segmento
   const totalSalvos = useMemo(() => leads.filter((l) => favoritos.has(l.id)).length, [leads, favoritos])
   const totalTipo = (t: string) => leads.filter((l) => !t || l.tipo === t).length
 
@@ -211,72 +201,85 @@ export default function Leads() {
           </div>
         </div>
 
-        <CategoriaNav categorias={categorias} contagem={contagem} cat={f.cat} segmento={f.segmento} mostrarTipo={!f.tipo}
-          onCategoria={(c) => set('cat', c)}
-          onSegmento={(c, id) => {
-            const p = new URLSearchParams(params)
-            p.delete('ordem')
-            if (id) { p.set('cat', c); p.set('segmento', id) } else p.delete('segmento')
-            setParams(p)
-          }} />
+        <CategoriaNav categorias={categorias} contagem={contagem} cat={f.cat} mostrarTipo={!f.tipo}
+          onCategoria={(c) => set('cat', c)} />
 
-        <div className="flex gap-1.5 overflow-x-auto pb-1" role="group" aria-label="Filtrar por fase">
-          {[{ id: '' as '' | FaseId, nome: 'Todos', ponto: '' }, ...FASES.map((x) => ({ id: x.id, nome: FASE_CURTA[x.id], ponto: PONTO_FASE[x.id] }))].map((x) => {
-            const ativo = f.fase === x.id
-            const qtd = x.id ? contagemFase[x.id] ?? 0 : totalFases
-            return (
-              <button key={x.id} onClick={() => set('fase', x.id)} aria-pressed={ativo}
-                title={x.id ? FASES.find((y) => y.id === x.id)!.status.map((s) => STATUS.find((t) => t.id === s)!.nome).join(' · ') : undefined}
-                className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1 text-xs transition ${
-                  ativo ? 'border-white/30 bg-white/10 text-ink' : 'border-white/10 text-ink-muted hover:bg-white/5 hover:text-ink'}`}>
-                {x.ponto && <span className={`h-1.5 w-1.5 rounded-full ${x.ponto}`} />}
-                {x.nome} <span className="tabular opacity-60">{nf.format(qtd)}</span>
-              </button>
-            )
-          })}
-        </div>
-
-        {verNichos && (
-          <NichoFiltro leads={paraNichos} selecionados={f.nichos}
-            onChange={(n) => set('nichos', n.join(','))} />
-        )}
-
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
-          <select className="input" value={f.status} onChange={(e) => set('status', e.target.value)}>
-            <option value="">Todos os status</option>
-            {STATUS.map((s) => <option key={s.id} value={s.id}>{s.nome}</option>)}
-          </select>
-          <select className="input" value={f.uf} onChange={(e) => { set('uf', e.target.value) }}>
-            <option value="">Todos os estados</option>
-            {ufs.map((u) => <option key={u} value={u}>{u}</option>)}
-          </select>
-          <select className="input" value={f.cidade} onChange={(e) => set('cidade', e.target.value)}>
-            <option value="">Todas as cidades</option>
-            {cidades.map((c) => <option key={c} value={c}>{c}</option>)}
-          </select>
-          <label className="flex items-center gap-3 rounded-lg border border-white/10 bg-raised px-3 py-2 text-sm">
-            <span className="whitespace-nowrap text-ink-muted">Score ≥</span>
-            <input type="range" min={0} max={100} step={5} value={f.scoreMin}
-              onChange={(e) => set('scoreMin', e.target.value === '0' ? '' : e.target.value)} className="w-full accent-garnet" />
-            <span className="tabular w-6 text-right">{f.scoreMin}</span>
-          </label>
-          <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-white/10 bg-raised px-3 py-2 text-sm">
-            <input type="checkbox" checked={f.contato} onChange={(e) => set('contato', e.target.checked ? '1' : '')}
-              className="accent-garnet" />
-            Só com contato
-          </label>
-        </div>
-
-        {temFiltro && (
-          <button onClick={() => setParams({})} className="flex items-center gap-1 text-xs text-ink-muted hover:text-ink">
-            <X size={13} /> Limpar filtros
+        <div className="flex flex-wrap items-center gap-2">
+          <FiltroPopover rotulo="Status" icone={CircleDot} valor={STATUS.find((x) => x.id === f.status)?.nome} onLimpar={() => set('status', '')}>
+            {(fechar) => <ListaOpcoes todos="Todos os status" opcoes={opcoesStatus} valor={f.status}
+              onEscolher={(v) => { set('status', v); fechar() }} />}
+          </FiltroPopover>
+          <FiltroPopover rotulo="Estado" icone={MapPin} valor={f.uf} onLimpar={() => set('uf', '')}>
+            {(fechar) => <ListaOpcoes todos="Todos os estados" opcoes={opcoesUf} valor={f.uf} buscaPlaceholder="Buscar estado…"
+              onEscolher={(v) => { set('uf', v); fechar() }} />}
+          </FiltroPopover>
+          <FiltroPopover rotulo="Cidade" icone={MapPin} valor={f.cidade} onLimpar={() => set('cidade', '')}>
+            {(fechar) => <ListaOpcoes todos={f.uf ? `Todas as cidades de ${f.uf}` : 'Todas as cidades'} opcoes={opcoesCidade} valor={f.cidade}
+              buscaPlaceholder="Buscar cidade…" onEscolher={(v) => { set('cidade', v); fechar() }} />}
+          </FiltroPopover>
+          <FiltroPopover rotulo="Score" icone={Gauge} valor={f.scoreMin ? `≥ ${f.scoreMin}` : null} onLimpar={() => set('scoreMin', '')}>
+            {() => (
+              <div className="space-y-3 p-1">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-ink-muted">Score mínimo</span>
+                  <span className="tabular font-semibold">{f.scoreMin}</span>
+                </div>
+                <input type="range" min={0} max={100} step={5} value={f.scoreMin} aria-label="Score mínimo"
+                  onChange={(e) => set('scoreMin', e.target.value === '0' ? '' : e.target.value)} className="w-full accent-garnet" />
+                <div className="flex gap-1.5">
+                  {[0, 50, 70, 80].map((v) => (
+                    <button key={v} onClick={() => set('scoreMin', v ? String(v) : '')}
+                      className={`flex-1 rounded-lg border px-2 py-1 text-xs transition ${
+                        f.scoreMin === v ? 'border-garnet bg-garnet/15 text-ink' : 'border-white/10 text-ink-muted hover:text-ink'}`}>
+                      {v ? `≥ ${v}` : 'Todos'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </FiltroPopover>
+          <button onClick={() => set('contato', f.contato ? '' : '1')} aria-pressed={f.contato}
+            className={`flex items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-sm transition ${
+              f.contato ? 'border-garnet/60 bg-garnet/10 text-ink' : 'border-white/10 bg-raised text-ink-muted hover:border-white/20 hover:text-ink'}`}>
+            <Phone size={14} className={f.contato ? 'text-garnet' : ''} /> Com contato
           </button>
-        )}
+          {temFiltro && (
+            <button onClick={() => setParams({})} className="ml-auto flex items-center gap-1 whitespace-nowrap text-xs text-ink-muted hover:text-ink">
+              <X size={13} /> Limpar filtros
+            </button>
+          )}
+        </div>
       </div>
 
       {erroFav && <p className="text-sm text-red-400" role="alert">Não foi possível salvar: {erroFav}</p>}
 
       <div className="card overflow-hidden">
+        <div className="space-y-3 border-b border-white/10 px-3 py-3 sm:px-4">
+          {catAtual && catAtual.segmentos.length > 1 && (
+            <Etapas rotulo={catAtual.nome} itens={[
+              { id: '', nome: 'Todos', qtd: catAtual.segmentos.reduce((n, x) => n + (contagem[x.id] ?? 0), 0) },
+              ...catAtual.segmentos.map((x) => ({ id: x.id, nome: x.nome, qtd: contagem[x.id] ?? 0 })),
+            ]} valor={f.segmento} destaque={!f.segmento} onEscolher={(id) => set('segmento', id)} />
+          )}
+          {verNichos && (
+            <NichoFiltro leads={paraNichos} selecionados={f.nichos} onChange={(n) => set('nichos', n.join(','))} />
+          )}
+          <div className="flex gap-1.5 overflow-x-auto" role="group" aria-label="Filtrar por fase">
+            {[{ id: '' as '' | FaseId, nome: 'Todas as fases', ponto: '' }, ...FASES.map((x) => ({ id: x.id, nome: FASE_CURTA[x.id], ponto: PONTO_FASE[x.id] }))].map((x) => {
+              const ativo = f.fase === x.id
+              const qtd = x.id ? contagemFase[x.id] ?? 0 : totalFases
+              return (
+                <button key={x.id} onClick={() => set('fase', x.id)} aria-pressed={ativo}
+                  title={x.id ? FASES.find((y) => y.id === x.id)!.status.map((st) => STATUS.find((t) => t.id === st)!.nome).join(' · ') : undefined}
+                  className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1 text-xs transition ${
+                    ativo ? 'border-white/30 bg-white/10 text-ink' : 'border-white/10 text-ink-muted hover:bg-white/5 hover:text-ink'}`}>
+                  {x.ponto && <span className={`h-1.5 w-1.5 rounded-full ${x.ponto}`} />}
+                  {x.nome} <span className="tabular opacity-60">{nf.format(qtd)}</span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -320,7 +323,7 @@ export default function Leads() {
                   <motion.tr initial={{ opacity: 0 }} animate={{ opacity: 1 }}
                     onClick={() => set('lead', l.id)}
                     className="cursor-pointer border-b border-white/5 transition odd:bg-white/[0.015] hover:bg-white/[0.05]">
-                    <td className={`${verSeguidores ? 'max-w-[6.5rem]' : 'max-w-[9.5rem]'} px-3 py-3 sm:max-w-none sm:px-4`}>
+                    <td className={`${verSeguidores ? 'max-w-[6.5rem]' : 'max-w-[9.5rem]'} px-3 py-3 sm:max-w-[15rem] sm:px-4 lg:max-w-[22rem] xl:max-w-[26rem]`}>
                       <div className="flex items-center gap-2 sm:gap-3">
                         <button onClick={(e) => { e.stopPropagation(); marcar(l.id) }}
                           title={fav ? 'Remover dos salvos' : 'Salvar como interessante'} aria-pressed={!!fav}
@@ -366,11 +369,11 @@ export default function Leads() {
                         {l.seguidores ? <span className="font-medium">{nfCompacto.format(l.seguidores)}</span> : <span className="text-ink-muted">—</span>}
                       </td>
                     ) : (
-                      <td className="hidden px-4 py-3 text-ink-soft sm:table-cell">{nomeSeg(l.segmento_id)}</td>
+                      <td className="hidden whitespace-nowrap px-4 py-3 text-ink-soft sm:table-cell">{nomeSeg(l.segmento_id)}</td>
                     )}
                     {verSeguidores && <td className="tabular hidden px-4 py-3 text-right sm:table-cell"><MediaViews valor={l.extras?.media_views_reels} /></td>}
                     {!verSeguidores && (
-                      <td className="hidden px-4 py-3 text-ink-soft md:table-cell">
+                      <td className="hidden whitespace-nowrap px-4 py-3 text-ink-soft md:table-cell">
                         {[l.cidade, l.uf].filter(Boolean).join(' / ') || <span className="text-ink-muted">—</span>}
                       </td>
                     )}
@@ -412,6 +415,37 @@ export default function Leads() {
       </div>
 
       <LeadDrawer lead={lead} onClose={() => set('lead', '')} />
+    </div>
+  )
+}
+
+// passo 2: os segmentos da categoria escolhida, em pílulas coladas na tabela
+function Etapas({ rotulo, itens, valor, destaque, onEscolher }: {
+  rotulo: string
+  itens: { id: string; nome: string; qtd: number }[]
+  valor: string
+  destaque: boolean
+  onEscolher: (id: string) => void
+}) {
+  return (
+    <div className="flex items-center gap-2 overflow-x-auto">
+      <span className="flex shrink-0 items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-ink-soft">
+        <span className="h-3.5 w-0.5 rounded-full bg-garnet" />{rotulo}
+        <ChevronRight size={13} className="text-ink-muted" />
+      </span>
+      <div className={`flex shrink-0 gap-0.5 rounded-full border p-0.5 transition ${destaque ? 'border-garnet/40 bg-garnet/[0.06]' : 'border-white/10 bg-raised'}`}>
+        {itens.map((x) => {
+          const ativo = valor === x.id
+          return (
+            <button key={x.id} onClick={() => onEscolher(x.id)} aria-pressed={ativo}
+              className={`relative whitespace-nowrap rounded-full px-3 py-1 text-sm transition ${ativo ? 'text-ink' : 'text-ink-muted hover:text-ink'}`}>
+              {ativo && <motion.span layoutId="etapa-ativa" className="absolute inset-0 rounded-full bg-white/10"
+                transition={{ type: 'spring', stiffness: 400, damping: 32 }} />}
+              <span className="relative">{x.nome} <span className="tabular text-xs opacity-60">{nf.format(x.qtd)}</span></span>
+            </button>
+          )
+        })}
+      </div>
     </div>
   )
 }
