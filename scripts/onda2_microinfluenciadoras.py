@@ -25,20 +25,32 @@ CIDADES = ['são-paulo', 'rio-de-janeiro', 'belo-horizonte', 'brasília', 'salva
 CATEGORIAS = ['beauty', 'beauty/affiliates', 'micro', 'micro/affiliates', 'fashion', 'fashion/affiliates', 'fitness',
               'fitness/affiliates', 'food', 'affiliates', '']
 # a página traz os perfis em dois formatos: JS (fullName:"..",bio:`..`) e JSON ("fullName":"..","bio":"..")
-PROFILE_JS = re.compile(r'fullName:"(.*?)",username:"(.*?)",bio:`(.*?)`,url:.*?followers:(\d+)', re.S)
-PROFILE_JSON = re.compile(r'"fullName":"(.*?)","username":"(.*?)","bio":("(?:[^"\\]|\\.)*"),"url":.*?"followers":(\d+)', re.S)
+BLOCO = re.compile(r'"?fullName"?:')
+CAMPO_NOME = re.compile(r'^\s*"((?:[^"\\]|\\.)*)"')
+CAMPO_USER = re.compile(r'"?username"?:"([^"]+)"')
+CAMPO_BIO = re.compile(r'"?bio"?:(?:`([^`]*)`|("(?:[^"\\]|\\.)*"))')
+CAMPO_SEG = re.compile(r'"?followers"?:(\d+)')
+
+
+def desescapar(txt):
+    try:
+        return json.loads('"' + txt + '"') if not txt.startswith('"') else json.loads(txt)
+    except ValueError:
+        return txt
 
 
 def perfis(html):
-    for nome, user, bio, seg in PROFILE_JS.findall(html):
-        yield nome, user, bio, seg
-    for nome, user, bio, seg in PROFILE_JSON.findall(html):
-        try:
-            nome = json.loads('"' + nome + '"')
-            bio = json.loads(bio)
-        except ValueError:
-            pass
-        yield nome, user, bio, seg
+    partes = BLOCO.split(html)[1:]
+    for parte in partes:
+        parte = parte[:60000]
+        n, u, b, f = CAMPO_NOME.search(parte), CAMPO_USER.search(parte), CAMPO_BIO.search(parte), CAMPO_SEG.search(parte)
+        if not (n and u and f):
+            continue
+        # o username/bio/followers têm de ser do mesmo perfil: aparecem antes do bloco seguinte
+        if u.start() > 400:
+            continue
+        bio = (b.group(1) if b and b.group(1) is not None else desescapar(b.group(2)) if b else '')
+        yield desescapar(n.group(1)), u.group(1), bio, f.group(1)
 
 
 def baixar(url):

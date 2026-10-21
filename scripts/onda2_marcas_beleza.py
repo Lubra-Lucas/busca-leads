@@ -7,6 +7,8 @@ Uso (python3 -I scripts/onda2_marcas_beleza.py ...):
                                          dominios provaveis + Bing "<nome> site oficial")
   coletar <candidatos.json> <saida.json> visita home + /contato, /atacado... e CNPJ do rodape (BrasilAPI) usando
                                          enriquecer_contatos.py; classifica o contato; descarta quem nao tem nenhum
+  renderizado <candidatos.json> <paginas.json> <saida.json>
+                                         igual a coletar, a partir do HTML salvo por renderizar_sites.mjs (sites em JS)
   sql <coletados.json> <lote> <tam>      imprime INSERT ... ON CONFLICT DO NOTHING (lote de <tam> marcas)
 Regras: so entra marca com e-mail, WhatsApp ou telefone publicado na pagina oficial/CNPJ; nada e inventado.
 """
@@ -234,11 +236,12 @@ def nome_da_pagina(html, site):
     return site.split('.')[0].title()
 
 
-def coletar_um(c):
+def coletar_um(c, paginas=None):
     site = c['site']
     lead = {'chave': norm(site)[:12], 'nome': c.get('nome') or site, 'site': site, 'email_atual': ''}
     TL.cnpj = None
-    lead_, paginas = EC.baixar_site(lead)
+    if paginas is None:
+        lead_, paginas = EC.baixar_site(lead)
     if not paginas:
         return {**c, 'erro': 'site fora do ar'}
     home = paginas[0][1]
@@ -269,6 +272,17 @@ def coletar_um(c):
         out['cnae'] = i.get('cnae_fiscal_descricao')
         out['razao'] = i.get('razao_social')
     return out
+
+
+def cmd_renderizado(entrada, paginas_json, saida):
+    cands = {norm(dominio(c['site']))[:12]: c for c in json.loads(Path(entrada).read_text(encoding='utf-8')) if c.get('site')}
+    res = []
+    for r in json.loads(Path(paginas_json).read_text(encoding='utf-8')):
+        c = cands.get(r['id'])
+        if c and r['paginas']:
+            res.append(coletar_um(c, [(p['url'], p['html']) for p in r['paginas']]))
+    Path(saida).write_text(json.dumps(res, ensure_ascii=False), encoding='utf-8')
+    print('renderizados', len(res), '| com contato', sum(1 for r in res if r.get('res') and r['res']['contatos']))
 
 
 def cmd_coletar(entrada, saida):
@@ -348,7 +362,7 @@ def cmd_sql(arq, ini, tam):
 
 def main():
     a = sys.argv[1:]
-    cmd = {'feira': cmd_feira, 'baixar_feira': baixar_feira, 'bing': cmd_bing, 'nomes': cmd_nomes, 'coletar': cmd_coletar, 'sql': cmd_sql}.get(a[0] if a else '')
+    cmd = {'feira': cmd_feira, 'baixar_feira': baixar_feira, 'bing': cmd_bing, 'nomes': cmd_nomes, 'coletar': cmd_coletar, 'renderizado': cmd_renderizado, 'sql': cmd_sql}.get(a[0] if a else '')
     if not cmd:
         print(__doc__)
         return
