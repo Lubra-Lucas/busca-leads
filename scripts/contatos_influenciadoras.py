@@ -119,6 +119,7 @@ def processar(lead):
                 r['tiktok_novo'] = p['handle']
     urls = []
     if perfil and not perfil.get('erro'):
+        r['tiktok_info'] = {k: perfil.get(k) for k in ('handle', 'nome_perfil', 'seguidores', 'bio', 'link_bio')}
         r['tiktok_url'] = f"https://www.tiktok.com/{perfil['handle']}"
         bio = perfil.get('bio') or ''
         e = limpar_emails(emails_texto(bio))
@@ -126,7 +127,7 @@ def processar(lead):
             r['achados'].append(('email', e, 'bio TikTok', r['tiktok_url']))
         for m in ES.FONE_LINK.findall(bio):
             f = ES.normalizar_fone(m)
-            if f:
+            if f and ES.eh_celular(f):
                 r['achados'].append(('whatsapp', f, 'bio TikTok', r['tiktok_url']))
         if perfil.get('link_bio'):
             urls.append(perfil['link_bio'])
@@ -145,8 +146,10 @@ def processar(lead):
         e = limpar_emails(p['emails'], ES.dominio_base(u))
         if e and not any(a[0] == 'email' for a in r['achados']):
             r['achados'].append(('email', e, metodo, p['url']))
-        if p['whats'] and not any(a[0] == 'whatsapp' for a in r['achados']):
-            r['achados'].append(('whatsapp', sorted(p['whats'])[0], metodo, p['url']))
+        # WhatsApp de site de loja costuma ser SAC: só aceitamos o do link da bio (celular válido)
+        zaps = sorted(f for f in p['whats'] if ES.eh_celular(f))
+        if metodo == 'link da bio' and zaps and not any(a[0] == 'whatsapp' for a in r['achados']):
+            r['achados'].append(('whatsapp', zaps[0], metodo, p['url']))
     return r
 
 
