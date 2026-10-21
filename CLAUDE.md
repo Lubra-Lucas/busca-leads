@@ -1,0 +1,158 @@
+# busca-leads — contexto para o Claude
+
+Leia este arquivo inteiro antes de começar. Ele resume o projeto, as preferências da usuária, como acessar o banco
+e **onde o trabalho parou** (seção "Estado atual"). Histórico detalhado da fase 1: `docs/fase1-coleta.md`.
+
+## O projeto
+Sistema de prospecção da **Garnet Cosméticos**: fabricante terceirizada (private label) de **maquiagem compacta**
+(pó, blush, sombra, bronzer, iluminador), foco no estado de **SP**. A base reúne três tipos de lead:
+- **Clientes:** influenciadoras, maquiadores, marcas indie de beleza, marcas de moda, varejo com marca própria,
+  salões e clínicas, marcas de TikTok Shop/perfumaria.
+- **Fornecedores:** embalagens, pigmentos, matérias-primas, essências.
+- **Investidores:** quem financia **tirar um projeto do papel** (não startup): uma marca de beleza com influenciadora
+  grande como embaixadora (royalty/comissão/equity), em que a Garnet cuida da fabricação e o investidor banca o
+  marketing (press kit, campanha de lançamento, e-commerce, frete). Só entram pessoas/empresas que **de fato fazem
+  esse tipo de investimento** — nada de pessoas operacionais. Flávia (MBOOM) já é conhecida e já fez negócio com a
+  Garnet (fica em `extras.relacao_garnet`). Dados de investidores ficam **só no banco** (o repositório é público).
+
+## Preferências da usuária (importante)
+- Responder sempre em **português**, de forma direta.
+- **Não usar o Lovable.** O site é feito no repositório e publicado no GitHub Pages.
+- **Não criar coisa que não foi pedida.** Conferir o projeto antes de mexer.
+- Busca de leads e contatos: **fontes gratuitas primeiro** (site da marca, bio/link do TikTok, BrasilAPI/CNPJ,
+  sites de agências, busca web). **Clay/Apollo só em casos extremos**, para as maiores marcas, e avisando o custo.
+- Quando ela pede tarefas "simultâneas"/"um agente para cada", usar subagentes em paralelo, **modelo Sonnet**.
+- Contato bom = direto com comercial/marketing/parcerias, e-mail da influenciadora ou da agência, WhatsApp, telefone.
+  SAC/atendimento serve, mas não é o contato certo.
+- Ela aprova permissões automaticamente (Supabase incluso): pode executar sem pedir confirmação a cada passo.
+
+## Repositório e publicação
+- GitHub: `Lubra-Lucas/busca-leads` (público). **Nunca** commitar chaves secretas, senhas ou dados de investidores.
+- Branch de trabalho: **`claude/epic-turing-5qltxt`**. O GitHub Pages publica a partir dela
+  (`.github/workflows/pages.yml`, dispara em push que mexe em `web/**`). Se a nova sessão trabalhar em outra branch,
+  faça merge nesta (ou ajuste o `branches:` do workflow), senão o site não atualiza.
+- Site: https://lubra-lucas.github.io/busca-leads/ (login por e-mail/senha; qualquer conta criada tem acesso).
+- Commits: mensagens em português, descritivas.
+
+## Estrutura
+```
+web/                    site (React 19 + Vite 6 + TS + Tailwind 3 + Framer Motion + Recharts + lucide-react, HashRouter)
+  src/lib/supabase.ts   URL + chave publicável do Supabase
+  src/lib/data.tsx      DataProvider: carrega leads (paginado de 1000 em 1000), segmentos e favoritos
+  src/lib/types.ts      tipos (Lead, Segmento, STATUS, TIPO_NOME…)
+  src/lib/status.ts     fases do funil (Não contatado/Contatado/Em andamento/Fechado/Encerrado), cores, avatar
+  src/lib/nichos.ts     nichos das influenciadoras (extras.nichos) e temNichos()
+  src/pages/Leads.tsx   lista: filtros na URL, categorias → segmentos (etapas) → nichos, tabela, salvos
+  src/pages/Dashboard.tsx
+  src/components/       CategoriaNav, FiltroPopover, NichoFiltro, StatusBadge, LeadDrawer (ficha), charts…
+scripts/                coleta/enriquecimento (Python 3 + requests/bs4; rodar com `python3 -I`)
+  db.py                       acesso ao banco pela API REST (ver "Acesso ao Supabase")
+  importar_planilhas.py       normaliza/deduplica as planilhas da Bia
+  enriquecer_sites.py         raspa contatos dos sites das marcas
+  renderizar_sites.mjs        Playwright para sites montados por JS
+  tiktok_shop.py              perfil público do TikTok (seguidores, bio, link, ttSeller = vende no TikTok Shop)
+  investidores_socios.py      CNPJ do rodapé → BrasilAPI (sócios/QSA)
+  contatos_influenciadoras.py contatos de influenciadoras pela bio/link do TikTok
+  enriquecer_contatos.py      enriquecimento geral de contatos (classifica direto/comercial/agência/geral/sac)
+supabase/migrations/    schema (aplicado no projeto remoto); supabase/seed/ primeira carga
+docs/fase1-coleta.md    histórico e critérios (score, fontes, decisões)
+```
+Rodar o site local: `cd web && npm install && npm run dev`. Validar antes de push: `npm run build && npx eslint src`
+(hoje: 0 erros e 4 avisos antigos de react-refresh).
+
+## Acesso ao Supabase
+Projeto **busca-leads** · ref `papaicnydbcajkfghwem` · org **bialub2** · região `sa-east-1`.
+URL: `https://papaicnydbcajkfghwem.supabase.co` · chave publicável (pública, já no site):
+`sb_publishable_RPFXNIMe-jQeGUVpCi4UYQ_J0lDgfcA`.
+
+Três jeitos de acessar, do melhor para o mais limitado:
+1. **Conector Supabase (MCP) do Claude** — permite SQL, migrações e advisors. Na conta nova do Claude, conecte o
+   conector Supabase (claude.ai → Settings → Connectors → Supabase) **entrando com a conta do Supabase que é dona da
+   org `bialub2`**. Se a conta do Supabase for outra, a dona precisa convidá-la antes: supabase.com/dashboard →
+   org bialub2 → Team → Invite (papel Developer ou Owner). Depois: `list_projects` deve mostrar `busca-leads`, e as
+   ferramentas usam `project_id = papaicnydbcajkfghwem`.
+2. **Chave secreta via variável de ambiente** (para scripts): copie a *service_role/secret key* em
+   Supabase → Project Settings → API keys e cadastre como variável/segredo do ambiente do Claude Code na web
+   (`SUPABASE_SERVICE_ROLE_KEY`). Nunca coloque no repositório. Aí `python3 -I scripts/db.py get leads "limit=5"`.
+3. **Login de usuário do site** (`SUPABASE_EMAIL` + `SUPABASE_SENHA` no ambiente): lê e edita via RLS (qualquer
+   usuário logado pode), mas não altera schema.
+
+### Pegadinhas conhecidas
+- `DELETE`, `DROP POLICY/INDEX` pelo MCP pedem confirmação destrutiva e **dão timeout** (60 s) nesta integração.
+  Alternativas usadas: `ALTER POLICY` em vez de drop; para duplicados, marcar o lead como `descartado` com
+  `extras.duplicado_de = <id do principal>` e mesclar os dados no principal (feito com Jade Picon e Jessica Cardoso).
+- Há índices únicos em `lower(site)` e `lower(instagram)`: antes de gravar um @/site, confira se já existe em outro lead.
+- Em regex do Postgres use `\y` (limite de palavra), não `\b`.
+- Instagram: a API pública pede login e a página dá 429 rápido. Funciona baixar `https://www.instagram.com/<user>/`
+  com `User-Agent: Googlebot/2.1 (+http://www.google.com/bot.html)` e ler `"follower_count":N`, com pausas
+  (~6 s) e retentativas — dá cerca de 1 perfil por minuto. Sempre confira o nome no `og:title`: vários @ "óbvios"
+  são de outras pessoas.
+- BrasilAPI: `https://brasilapi.com.br/api/cnpj/v1/{cnpj}`. Se o site só traz a raiz do CNPJ (8 dígitos), monte a
+  matriz com dígitos verificadores (`matriz()` em `investidores_socios.py`).
+- WebSearch costuma recusar buscas pelo nome de pessoas físicas.
+
+## Modelo de dados (resumo)
+- `segmentos(id, tipo, nome, descricao, categoria, ordem)` — `categoria` agrupa os cartões do site
+  (Influência, Marcas de beleza, Moda, Varejo e salões, Embalagens, Insumos e fragrâncias, Estratégicos,
+  Mídia por participação, Fundos e anjos).
+- `leads`: `tipo` (enum cliente/fornecedor/investidor), `segmento_id`, `nome`, `contato_nome`, `contato_cargo`,
+  `subsegmento`, `cidade`, `uf`, `bairro`, `endereco`, `site`, `instagram`, `tiktok`, `seguidores`, `linkedin`,
+  `email`, `telefone`, `whatsapp`, `fonte`, `fonte_url`, `score` (0–100), `status` (enum novo/qualificado/contatado/
+  respondeu/reuniao/ganho/perdido/descartado), `observacoes`, `extras` (jsonb).
+- Chaves usadas em `extras`: `nichos` (array) e `nicho_principal`; `nome_original` (antes da padronização);
+  `contatos` (array `{nome,cargo,email,telefone,whatsapp,linkedin,tipo,fonte,data}`, tipo ∈ direto/comercial/
+  agencia/geral/sac) e `contato_qualidade`; `contato_fonte`; `enriquecimento`; `tiktok_perfil`;
+  `seguidores_fonte`; `media_views_reels`; `plataforma`; `relacao_garnet`, `tese`, `ticket`, `precedentes`,
+  `pessoas_investimento` (investidores); `duplicado_de` / `mesclado_de`; `unidades` (redes de salões).
+- `interacoes(lead_id, canal, resumo, created_at)` — histórico de contatos.
+- `favoritos(user_id, lead_id, nota, …)` — leads salvos por usuário, com anotação; RLS: cada um vê os seus.
+- `usuarios_permitidos` + função `usuario_permitido()` — hoje libera qualquer usuário logado.
+- Escritas em lote: `UPDATE ... FROM (VALUES ...)`, sempre fazendo merge em `extras`
+  (`coalesce(extras,'{}') || jsonb_build_object(...)`), preenchendo só campos vazios e subindo score com `greatest`.
+
+## Estado atual (21/10/2026) — onde paramos
+Base: **1.619 leads ativos** (fora os descartados). Ainda **352 sem nenhum contato** (sem e-mail, WhatsApp e telefone):
+
+| Segmento | Ativos | Sem contato |
+|---|---|---|
+| salao_beleza | 725 | 38 |
+| influenciadora | 379 | 121 |
+| marca_indie | 300 | 109 |
+| marca_moda | 146 | 55 |
+| tiktok_perfumaria | 20 | 5 |
+| fornecedores (matérias-primas 9, embalagens 7, essências 4, pigmentos 2) | 22 | 13 |
+| maquiador / varejo_private | 4 / 3 | 4 / 3 |
+| investidores | 20 | 4 |
+
+Feito nas últimas sessões:
+- Nomes das influenciadoras padronizados (sem emoji, sem caixa alta, sem descrição depois de "|").
+- Nichos das 381 influenciadoras em `extras.nichos` + filtro de nicho no site.
+- Site: status por fase com cores, tabela redesenhada (avatar, score em pílula, ícones só dos contatos existentes),
+  filtros em etapas (categoria → segmento → nicho), pílulas com painel e busca no lugar dos selects,
+  leads **salvos** com anotação rápida (estrela na lista, filtro "Salvos", card no painel, campo na ficha),
+  seção "Outros contatos" na ficha.
+- Seguidores: 19 de 32 influenciadoras sem número foram preenchidas pelo Instagram público.
+- Enriquecimento de contatos (gratuito): ~100 leads saíram do "sem contato"; 243 leads têm `extras.contatos`.
+  Clay usado 1 vez (0 resultado); Apollo plano Free não libera a busca de pessoas.
+
+Pendências / próximos passos sugeridos (confirmar com a usuária antes):
+1. **121 influenciadoras sem contato**, incluindo as maiores (Anitta, Bruna Marquezine, Viih Tube, Sabrina Sato,
+   Camila Coelho, Thássia Naves…). O contato está na bio do Instagram (exige login) ou com as assessorias.
+   Caminhos: alguém logado no Instagram, ou Clay/Apollo pago só para as maiores.
+2. **13 influenciadoras sem seguidores**: Grazi Massafera, Helena Bordon, Emily Garcia, Pamella Lunardi,
+   Ana Júlia Corrêa, Luiz Leal (Instagram não respondeu); Duda Reis, Letícia Gomes, Mel Maia, Bella Dias,
+   Julia Alvarenga (perfis achados não eram a pessoa); Belle (planetgirls), Gip Pierro. Precisa do @ correto.
+3. ~100 marcas indie e ~34 salões sem site nem TikTok; varejo (Renner, C&A, RD, GPA) sem contato corporativo.
+4. 48 leads tiveram o site descoberto no enriquecimento, mas o campo `site` não foi preenchido.
+5. Revisar nichos chutados de perfis sem descrição (MAVI NAKA, Marcela Freire, Giovanna Pierro, Julianna Motta,
+   Jéssica Cardoso, Belle).
+6. Contatos "geral" (telefone do CNPJ, WhatsApp de rodapé) não foram validados — conferir antes de campanha.
+7. Ideias já discutidas e não iniciadas: onda 2 de microinfluenciadoras de SP (10k–300k), fornecedores de estojo
+   compacto em SP com MOQ, automação de envio de e-mails (ela perguntou se é possível; ainda não pediu).
+
+## Testes visuais do site
+Sem acesso ao banco no navegador de teste, use um mock: Playwright (Chromium em `/opt/pw-browsers`, nunca rode
+`playwright install`) interceptando `**/rest/v1/**` (leads, segmentos, favoritos, `rpc/usuario_permitido` → `true`)
+e gravando uma sessão falsa em `localStorage['sb-papaicnydbcajkfghwem-auth-token']`. Sirva o build com
+`cd web && npx vite preview --port 4173 --strictPort`. Gere o mock a partir do banco (não commitar: tem dados reais).
+Confira desktop (1440px) e celular (390px, sem rolagem horizontal).

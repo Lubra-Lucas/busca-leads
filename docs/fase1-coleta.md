@@ -87,6 +87,29 @@ login ou pagamento, e o TikTok não publica um ranking.
 - **Score das marcas novas:** 40 + 15 (vende no TikTok Shop) + 10/5 (seguidores ≥100 mil/≥10 mil) + 15 (e-mail) + 10 (WhatsApp) ou 5 (telefone). Marcas de grandes grupos (Avon, Darrow) têm −10.
 - **Onde os dados ficam:** em `extras.tiktok_perfil`. No site, há o filtro "TikTok Shop" e um selo na lista.
 
+## Investidores (21/10/2026)
+Novo tipo de lead `investidor` (segmentos: estratégicos de marcas, media for equity, corporate venture, fundos VC,
+redes de anjos). Critério: só quem financia projetos/marcas de fato, sem pessoas operacionais. Os registros ficam
+só no banco (repositório público). Script de apoio: `scripts/investidores_socios.py`.
+
+## Organização, influenciadoras e contatos (21/10/2026)
+- **Categorias:** `segmentos.categoria` + `ordem` agrupam os cartões do site. Filtro em etapas: categoria → segmento →
+  nicho, com status, estado, cidade e score em painéis com busca.
+- **Nomes das influenciadoras:** 39 padronizados (sem emoji/letras decorativas/caixa alta; descrição depois de "|"
+  removida). Original em `extras.nome_original`.
+- **Nichos:** `extras.nichos` (Maquiagem 315, Lifestyle 99, UGC 30, Celebridade 29, Moda 23, Cabelo 18, Skincare 17…),
+  classificados a partir do subsegmento. Filtro com lógica "tem todos os marcados".
+- **Status por fase:** Não contatado (novo/qualificado), Contatado, Em andamento (respondeu/reunião), Fechado (ganho),
+  Encerrado (perdido/descartado).
+- **Salvos:** tabela `favoritos` (por usuário) com anotação rápida.
+- **Seguidores:** 19 de 32 influenciadoras sem número preenchidas pela página pública do Instagram
+  (`extras.seguidores_fonte`). Duplicados achados e mesclados: Jade Picon e Jessica Cardoso.
+- **Contatos de influenciadoras (`scripts/contatos_influenciadoras.py`):** 19 ganharam e-mail/WhatsApp pela bio e link
+  do TikTok; 18 ganharam o @ do TikTok.
+- **Enriquecimento geral (`scripts/enriquecer_contatos.py`):** ~265 sites lidos (+106 com navegador), CNPJ pela
+  BrasilAPI e sites de agências. ~100 leads saíram do "sem contato"; cada contato fica em `extras.contatos` com o tipo
+  (direto/comercial/agência/geral/sac) e aparece na ficha em "Outros contatos". Sem contato restante: 352 leads ativos.
+
 ## Próximos passos (fase 1, continuação)
 1. Enriquecer os leads com score 80+: Instagram, contato comercial e e-mail (Apollo/Clay cobram créditos, então confirmar orçamento antes).
 2. Onda 2: microinfluenciadoras de SP (10k–300k seguidores), que são o público mais provável a lançar uma primeira linha com lote mínimo baixo.

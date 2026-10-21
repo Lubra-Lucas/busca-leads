@@ -1,10 +1,12 @@
 # busca-leads
 
+> Para o Claude: leia o [`CLAUDE.md`](CLAUDE.md) — contexto, acesso ao Supabase e onde o trabalho parou.
+
 Base de prospecção de clientes e fornecedores da **Garnet Cosméticos** (maquiagem compacta private label, foco em SP).
 
 ## Supabase
 - Projeto: `busca-leads` · ref `papaicnydbcajkfghwem` · org `bialub2` · região `sa-east-1` (São Paulo)
-- Tabelas: `segmentos`, `leads` (com `extras` jsonb para campos específicos de cada fonte), `interacoes`, `usuarios_permitidos` (RLS ativo; acesso para qualquer usuário logado)
+- Tabelas: `segmentos`, `leads` (com `extras` jsonb para campos específicos de cada fonte), `interacoes`, `favoritos`, `usuarios_permitidos` (RLS ativo; acesso para qualquer usuário logado)
 - Schema: `supabase/migrations/`
 - Cargas de leads: `supabase/seed/` e `scripts/importar_planilhas.py` (planilhas da Bia)
 
