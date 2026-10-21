@@ -1,10 +1,9 @@
 """Onda 2 - marcas de beleza brasileiras: descobre site, le contatos publicados e gera o INSERT para o Supabase.
 
 Uso (python3 -I scripts/onda2_marcas_beleza.py ...):
-  bing <consultas.txt> <saida.json>      consultas web (Bing) -> dominios candidatos de lojas oficiais de marcas
   feira <expositores.json> <saida.json>  expositores da Beauty Fair (API do site, 491 em 2026) -> candidatos (site ou @ do link)
   nomes <nomes.txt> <saida.json>         "Nome|subsegmento|UF|grande(0/1)|site?" -> descobre o dominio (teste de
-                                         dominios provaveis + Bing "<nome> site oficial")
+                                         dominios provaveis; so aceita se a pagina cita a marca e o ramo)
   coletar <candidatos.json> <saida.json> visita home + /contato, /atacado... e CNPJ do rodape (BrasilAPI) usando
                                          enriquecer_contatos.py; classifica o contato; descarta quem nao tem nenhum
   renderizado <candidatos.json> <paginas.json> <saida.json>
@@ -12,7 +11,6 @@ Uso (python3 -I scripts/onda2_marcas_beleza.py ...):
   sql <coletados.json> <lote> <tam>      imprime INSERT ... ON CONFLICT DO NOTHING (lote de <tam> marcas)
 Regras: so entra marca com e-mail, WhatsApp ou telefone publicado na pagina oficial/CNPJ; nada e inventado.
 """
-import base64
 import importlib.util
 import json
 import re
@@ -22,7 +20,6 @@ import time
 import unicodedata
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from urllib.parse import parse_qs, urlparse
 
 import requests
 
@@ -91,54 +88,7 @@ def dominio(url):
     return ES.dominio_base(url)
 
 
-# ---------------------------------------------------------------- busca web (Bing)
-def bing(q, pagina=0):
-    h = {'User-Agent': UA, 'Accept-Language': 'pt-BR,pt;q=0.9'}
-    r = requests.get('https://www.bing.com/search', params={'q': q, 'setlang': 'pt-BR', 'cc': 'BR', 'first': 1 + 10 * pagina},
-                     headers=h, timeout=25)
-    out = []
-    for blk in re.findall(r'<li class="b_algo".*?</li>', r.text, re.S):
-        m = re.search(r'href="(https://www\.bing\.com/ck/a\?[^"]+)"', blk)
-        url = None
-        if m:
-            u = parse_qs(urlparse(m.group(1).replace('&amp;', '&')).query).get('u', [''])[0]
-            if u.startswith('a1'):
-                u = u[2:]
-                try:
-                    url = base64.urlsafe_b64decode(u + '=' * (-len(u) % 4)).decode()
-                except ValueError:
-                    url = None
-        else:
-            m = re.search(r'<h2><a[^>]*href="(https?://[^"]+)"', blk)
-            url = m.group(1) if m else None
-        t = re.search(r'<h2.*?>(.*?)</h2>', blk, re.S)
-        if url:
-            out.append({'url': url, 'titulo': re.sub(r'<[^>]+>', '', t.group(1)) if t else ''})
-    return out
-
-
-def cmd_bing(consultas, saida):
-    achados = {}
-    for q in Path(consultas).read_text(encoding='utf-8').splitlines():
-        q = q.strip()
-        if not q or q.startswith('#'):
-            continue
-        for pg in (0, 1):
-            try:
-                rs = bing(q, pg)
-            except requests.RequestException:
-                continue
-            for r in rs:
-                d = dominio(r['url'])
-                if not d or BLOQUEIO.search(d) or not d.endswith(('.br', '.com', '.shop', '.store', '.co')):
-                    continue
-                achados.setdefault(d, {'site': d, 'titulo': r['titulo'], 'fonte_url': r['url'], 'consulta': q})
-            time.sleep(1.2)
-        print(q, len(achados), flush=True)
-    Path(saida).write_text(json.dumps(list(achados.values()), ensure_ascii=False, indent=0), encoding='utf-8')
-
-
-
+# ---------------------------------------------------------------- descoberta de candidatos
 MAPA_CAT = {'maquiagem': 'Maquiagem', 'cilios': 'Maquiagem', 'skincare': 'Skincare', 'protecao-solar-e-bronzeadores': 'Skincare',
             'cabelos': 'Cabelo', 'unhas': 'Unhas', 'perfume': 'Perfumaria', 'barber': 'Barba e masculino', 'sobrancelhas': 'Sobrancelhas', 'depilacao': 'Depilação',
             'estetica': 'Skincare'}
@@ -189,17 +139,6 @@ def cmd_feira(entrada, saida):
     Path(saida).write_text(json.dumps(res, ensure_ascii=False), encoding='utf-8')
 
 
-def descobrir_por_bing(nome):
-    try:
-        for r in bing(f'{nome} cosméticos site oficial')[:6]:
-            d = dominio(r['url'])
-            if d and not BLOQUEIO.search(d) and norm(nome)[:6] in norm(d):
-                return d, r['url']
-    except requests.RequestException:
-        pass
-    return None, None
-
-
 def cmd_nomes(nomes, saida):
     linhas = [(l.split('|') + [''] * 5)[:5] for l in Path(nomes).read_text(encoding='utf-8').splitlines()
               if l.strip() and not l.startswith('#')]
@@ -209,8 +148,6 @@ def cmd_nomes(nomes, saida):
         fonte_url = None
         if not site:
             site = EC.descobrir_dominio(nome)
-        if not site:
-            site, fonte_url = descobrir_por_bing(nome)
         return {'nome': nome, 'subseg': sub or None, 'uf': uf or None, 'grande': grande == '1', 'site': site,
                 'fonte_url': fonte_url}
 
@@ -315,10 +252,17 @@ def montar_registro(r):
     for c in contatos:
         c['data'] = DATA
     cont = r['cont']
-    sub = r.get('subseg')
+    sub = r.get('subseg') if r.get('feira_cats') else None
+    if r.get('subseg') == 'Marca de influenciadora':
+        sub = r['subseg']
     if not sub:
-        sub = 'Maquiagem' if cont['Maquiagem'] >= 4 else max(cont, key=cont.get)
-    uf = r.get('uf') or r.get('uf_cnpj')
+        sub = 'Maquiagem' if cont['Maquiagem'] >= 15 or cont['Maquiagem'] == max(cont.values()) else max(cont, key=cont.get)
+    dica = re.search(r'make|maquiag|nail|esmalt|hair|cabel|cacho|derm|skin|perfum|parfum|aroma|lash', r['nome'] + ' ' + r['site'], re.I)
+    if dica and not r.get('feira_cats') and r.get('subseg') != 'Marca de influenciadora':
+        sub = {'make': 'Maquiagem', 'maquiag': 'Maquiagem', 'nail': 'Unhas', 'esmalt': 'Unhas', 'hair': 'Cabelo', 'cabel': 'Cabelo',
+               'cacho': 'Cabelo', 'derm': 'Skincare', 'skin': 'Skincare', 'perfum': 'Perfumaria', 'parfum': 'Perfumaria',
+               'aroma': 'Perfumaria', 'lash': 'Maquiagem'}[dica.group(0).lower()]
+    uf = r.get('uf_cnpj')
     sp = uf == 'SP'
     pontos = 40
     pontos += 15 if sub in ('Maquiagem', 'Marca de influenciadora') and cont['Maquiagem'] >= 2 else (5 if sub in ('Skincare', 'Cabelo') else 0)
@@ -334,21 +278,23 @@ def montar_registro(r):
     ch = ch if len(ch) >= 4 else norm(r['nome'])[:4]
     insta = r.get('instagram') or next((i for i in r['instas'] if ch in norm(i) or norm(r['site'].split('.')[0])[:5] in norm(i)), None)
     tk = next((t for t in r['tiktoks'] if ch in norm(t)), None)
+    tk = '@' + tk if tk else None
     extras = {'contatos': contatos, 'contato_qualidade': tipo, 'enriquecimento': r['paginas'], 'cnpj': r.get('cnpj'),
-              'categorias_produto': cats, 'feira_categorias': r.get('feira_cats'), 'onda': 'onda2_2026-10-21'}
+              'fonte_origem': r.get('fonte_nome'), 'categorias_produto': cats, 'feira_categorias': r.get('feira_cats'), 'onda': 'onda2_2026-10-21'}
     if r.get('razao'):
         extras['razao_social'] = r['razao']
-    return dict(seg=seg, nome=r['nome'], site=r['site'], insta=insta, tk=tk, email=res.get('email'),
+    site = dominio(r['site'])
+    return dict(seg=seg, nome=r['nome'], site=site, insta=insta, tk=tk, email=res.get('email'),
                 whats=res.get('whatsapp'), tel=res.get('telefone'), cnome=res.get('contato_nome'),
                 ccargo=res.get('contato_cargo'), cidade=r.get('cidade'), uf=uf, sub=sub, fonte_url=r.get('fonte_url') or
-                f"https://{r['site']}", score=pontos, extras=extras)
+                f"https://{site}", score=pontos, extras=extras)
 
 
 def linha_sql(m):
     return '(' + ','.join([q(m['seg']), q(m['nome']), q(m['site']), q(m['insta']), q(m['tk']), q(m['email']), q(m['whats']),
                            q(m['tel']), q(m['cnome']), q(m['ccargo']), q(m['cidade']), q(m['uf']), q(m['sub']),
                            q(FONTE), q(m['fonte_url']), str(m['score']),
-                           q(json.dumps(m['extras'], ensure_ascii=False)) + '::jsonb']) + ')'
+                           q(json.dumps({k: v for k, v in m['extras'].items() if v not in (None, [], '')}, ensure_ascii=False, separators=(',', ':'))) + '::jsonb']) + ')'
 
 
 COLS = ('segmento_id,nome,site,instagram,tiktok,email,whatsapp,telefone,contato_nome,contato_cargo,cidade,uf,subsegmento,'
@@ -367,7 +313,7 @@ def cmd_sql(arq, ini, tam):
 
 def main():
     a = sys.argv[1:]
-    cmd = {'feira': cmd_feira, 'baixar_feira': baixar_feira, 'bing': cmd_bing, 'nomes': cmd_nomes, 'coletar': cmd_coletar, 'renderizado': cmd_renderizado, 'sql': cmd_sql}.get(a[0] if a else '')
+    cmd = {'feira': cmd_feira, 'baixar_feira': baixar_feira, 'nomes': cmd_nomes, 'coletar': cmd_coletar, 'renderizado': cmd_renderizado, 'sql': cmd_sql}.get(a[0] if a else '')
     if not cmd:
         print(__doc__)
         return

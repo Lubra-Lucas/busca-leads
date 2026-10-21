@@ -135,6 +135,23 @@ Feito nas últimas sessões:
 - Enriquecimento de contatos (gratuito): ~100 leads saíram do "sem contato"; 243 leads têm `extras.contatos`.
   Clay usado 1 vez (0 resultado); Apollo plano Free não libera a busca de pessoas.
 
+Onda 2 de captação (21/10/2026, 5 agentes em paralelo; `extras.onda = 'onda2_2026-10-21'`, todos com contato):
+- **Grandes influenciadoras (1M+):** 41 novas (Virginia, Whindersson, Ivete, Zé Felipe, Ana Castela, Claudia Leitte…),
+  `fonte = 'Busca onda 2 – grandes influenciadoras'`. Seguidores de HypeAuditor/imprensa; 15 com número de TikTok/YouTube.
+  Sem contato (candidatas a rodada paga): Simone Mendes, Paolla Oliveira, Carlinhos Maia, Luísa Sonza, Boca Rosa,
+  Pabllo Vittar, Ludmilla, Gio Ewbank, Lexa, Kéfera, Rafa Kalimann, Manu Gavassi. Script: `scripts/onda2_influenciadoras_grandes.py`.
+- **Microinfluenciadoras (10k–1M):** 85 novas, fonte Modash (páginas públicas por cidade), só 10 de SP.
+  `fonte = 'Busca onda 2 – microinfluenciadoras'`. Script: `scripts/onda2_microinfluenciadoras.py`.
+- **Maquiadores:** só 7 novos (SP), + Catharine Hill Academy completada. ~25 nomes fortes sem contato público
+  (Fernando Torquatto, Max Weber, Helder Rodrigues…). Script: `scripts/onda2_maquiadores.py`.
+- **Marcas de beleza:** 111 novas (103 `marca_indie`, 8 `tiktok_perfumaria`), 74 vindas dos expositores da Beauty Fair 2026.
+  Conferir CNPJ de Vizcaya, Skafe, Lacan, L'Acqua di Fiori, Olera (razão social não bate) e Kolene/OX (mesmo CNPJ).
+  Script: `scripts/onda2_marcas_beleza.py`.
+- **Terceirizadoras (concorrentes):** novo segmento `terceirizadora` (categoria "Concorrentes"), 83 empresas (47 SP,
+  7 fazem compactos; mais parecida: Lary Terceirização, Mairiporã). Script: `scripts/onda2_terceirizadoras.py`.
+- Base depois da onda 2: **1.946 leads ativos, 350 sem contato**. Instagram público ficou bloqueado (429) nesta
+  máquina durante a onda; maquiadores e micro de SP precisam de Instagram logado ou ferramenta paga para crescer.
+
 Pendências / próximos passos sugeridos (confirmar com a usuária antes):
 1. **121 influenciadoras sem contato**, incluindo as maiores (Anitta, Bruna Marquezine, Viih Tube, Sabrina Sato,
    Camila Coelho, Thássia Naves…). O contato está na bio do Instagram (exige login) ou com as assessorias.
