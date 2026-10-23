@@ -152,6 +152,12 @@ Onda 2 de captação (21/10/2026, 5 agentes em paralelo; `extras.onda = 'onda2_2
 - Base depois da onda 2: **1.946 leads ativos, 350 sem contato**. Instagram público ficou bloqueado (429) nesta
   máquina durante a onda; maquiadores e micro de SP precisam de Instagram logado ou ferramenta paga para crescer.
 
+Investidores, onda de 23/10/2026 (4 agentes Sonnet; `extras.onda = 'investidores_2026-10-23'`): +23 investidores
+(media for equity, construtoras de marcas com celebridades, fundos/CVC de consumo, anjos e equity crowdfunding),
+total **43**. Só 3 sem e-mail/telefone (Atlantico, Canary, Emerge Ventures: LinkedIn/formulário). Mercado brasileiro de
+media-for-equity é pequeno; vários fundos grandes têm ticket acima do projeto. Detalhes (tese, ticket, precedentes,
+pessoas) só no banco.
+
 Pendências / próximos passos sugeridos (confirmar com a usuária antes):
 1. **121 influenciadoras sem contato**, incluindo as maiores (Anitta, Bruna Marquezine, Viih Tube, Sabrina Sato,
    Camila Coelho, Thássia Naves…). O contato está na bio do Instagram (exige login) ou com as assessorias.
