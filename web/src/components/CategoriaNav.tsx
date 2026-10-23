@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { Factory, FlaskConical, Handshake, Landmark, Megaphone, Package, Palette, Shirt, Sparkles, Store, Tag, type LucideIcon } from 'lucide-react'
+import { Factory, FlaskConical, Handshake, Landmark, Megaphone, Package, Palette, Shirt, Sparkles, Store, Tag, Truck, type LucideIcon } from 'lucide-react'
 import { nf } from '../lib/format'
 import { TIPO_NOME, type Segmento } from '../lib/types'
 
@@ -9,6 +9,7 @@ const ICONES: Record<string, LucideIcon> = {
   'Concorrentes': Factory,
   'Moda': Shirt,
   'Varejo e salões': Store,
+  'Distribuição': Truck,
   'Embalagens': Package,
   'Insumos e fragrâncias': FlaskConical,
   'Estratégicos': Handshake,
