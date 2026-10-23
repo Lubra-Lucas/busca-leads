@@ -170,6 +170,16 @@ total **43**. Só 3 sem e-mail/telefone (Atlantico, Canary, Emerge Ventures: Lin
 media-for-equity é pequeno; vários fundos grandes têm ticket acima do projeto. Detalhes (tese, ticket, precedentes,
 pessoas) só no banco.
 
+Distribuidores, onda de 23/10/2026 (6 agentes Sonnet; `extras.onda = 'distribuidores_2026-10-23'`): novo segmento
+`distribuidor` (cliente, categoria "Distribuição", ícone Truck no `CategoriaNav`), **107 distribuidores** de todo o
+Brasil, todos com site e contato (atacado de beleza/perfumaria, profissional de salão, farma/centrais de compra,
+importadores, atacado de maquiagem para revenda, regionais). Mais 5 marcas com revenda em `marca_indie` e Redepharma em
+`varejo_private`. Em `extras`: `marcas_distribuidas`, `marca_propria`, `area_atuacao`, `cnpj`, `portal_fornecedor`.
+Destaques com marca própria: Pérolas Make (GO), Adversa/Atacado Make, KS Cosméticos, Florenza; canais: Union (Ruby Rose),
+Bim (Sheglam), Prisma (RS), Farmácias Associadas e Farmarcas (centrais com marca própria). Quase todos os contatos são
+"geral"; sem nomes de comprador. Ficaram de fora por falta de site/contato: Panpharma, Santa Cruz, Nazária, Oncoprod,
+DAG, Juno, Tradeline. Script: `scripts/onda_distribuidores.py`. Base: **2.229 leads ativos**.
+
 Pendências / próximos passos sugeridos (confirmar com a usuária antes):
 1. **121 influenciadoras sem contato**, incluindo as maiores (Anitta, Bruna Marquezine, Viih Tube, Sabrina Sato,
    Camila Coelho, Thássia Naves…). O contato está na bio do Instagram (exige login) ou com as assessorias.
