@@ -192,6 +192,16 @@ Embalagens SP + distribuidores, rodada de 28/10/2026 (5 agentes Sonnet; script g
 - Os agentes bateram no limite de 200 WebSearch por sessão; listas de expositores (FCE, Fispal) são JS e não abriram.
 - Base: **2.315 leads ativos**.
 
+Estojos para compactados (28/10/2026): a Garnet **não usa potes/frascos**, só embalagem para compactados (estojo
+compacto, paleta, book, godê/pan, case de pó/blush, refil). Os 181 fornecedores de embalagem foram varridos
+(`scripts/estojos_embalagens.py`) e conferidos por 3 agentes Sonnet. Novo segmento **`estojos`** ("Estojos e paletas
+(compactados)", categoria Embalagens, ordem 49) com 18 leads: **7 confirmados** (`extras.faz_estojo = 'sim'`: Incom,
+Kilimplast, Irafon, Plasmedix, Thomriss, Expak, Zarzur/RJ) e **11 prováveis** (subsegmento "(a confirmar)": Plano,
+Bigaplast, Bristol e Pivaudran, Albea, Qualipac, Agace, MTSZ, Belaplastic, Lu Plastic, Pharmaprov, Fotonbras). Todos os
+181 têm `extras.faz_estojo` (sim/provavel/nao/indefinido), `tipos_compactado`, `evidencia`, `evidencia_url`. Sites de
+Plano, Bigaplast, Bristol, Agace, Albea, Lu Plastic, Uniplas e Mega Plast não abrem desta rede (proxy 502) — confirmar
+por telefone. Nenhum informa MOQ.
+
 Pendências / próximos passos sugeridos (confirmar com a usuária antes):
 1. **121 influenciadoras sem contato**, incluindo as maiores (Anitta, Bruna Marquezine, Viih Tube, Sabrina Sato,
    Camila Coelho, Thássia Naves…). O contato está na bio do Instagram (exige login) ou com as assessorias.
