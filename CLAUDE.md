@@ -180,6 +180,18 @@ Bim (Sheglam), Prisma (RS), Farmácias Associadas e Farmarcas (centrais com marc
 "geral"; sem nomes de comprador. Ficaram de fora por falta de site/contato: Panpharma, Santa Cruz, Nazária, Oncoprod,
 DAG, Juno, Tradeline. Script: `scripts/onda_distribuidores.py`. Base: **2.229 leads ativos**.
 
+Embalagens SP + distribuidores, rodada de 28/10/2026 (5 agentes Sonnet; script genérico `scripts/consolidar_onda.py`):
+- **+68 embalagens** (`extras.onda = 'embalagens_2026-10-28'`), 67 em SP; embalagens agora 181 (158 SP). Destaques de
+  maquiagem: Qualipac/Pochet e Albea (Jundiaí, MOQ alto), Expak e Agace (SP, estojos de pó/sombra/batom), Mega Plast,
+  Uniplas, Belaplastic (MG, potes para pigmento/pó); frascos/tampas: Reali, Plásticos GT, Visão Sopro (MOQ 3.000),
+  Anfeplast, Ibeplas; revenda sem mínimo: Aromapack. Em `extras`: `produtos`, `materiais`, `moq`, `pequenas_tiragens`,
+  `fabrica_ou_revenda`. Vários contatos vêm do Guia ABRE (cadastros de ~7 anos) — validar. Não há fabricante nacional de
+  godê/paleta achado; ferramentaria de estojo: Digimold, Lu Plastic, Riplast, Plasdiam; decoração: Gensys, Tekarts.
+- **+18 distribuidores** (`extras.onda = 'distribuidores_2026-10-28'`), total 125. Lista de 307 distribuidores do
+  N/NE/CO/MG/ES só com CNPJ e telefone (sem site) ficou fora do banco, aguardando decisão da usuária.
+- Os agentes bateram no limite de 200 WebSearch por sessão; listas de expositores (FCE, Fispal) são JS e não abriram.
+- Base: **2.315 leads ativos**.
+
 Pendências / próximos passos sugeridos (confirmar com a usuária antes):
 1. **121 influenciadoras sem contato**, incluindo as maiores (Anitta, Bruna Marquezine, Viih Tube, Sabrina Sato,
    Camila Coelho, Thássia Naves…). O contato está na bio do Instagram (exige login) ou com as assessorias.
