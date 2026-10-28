@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { AtSign, Briefcase, ExternalLink, Globe, MapPin, Mail, MessageCircle, Music2, Phone, Plus, Star, X } from 'lucide-react'
 import StatusBadge from './StatusBadge'
 import { supabase } from '../lib/supabase'
+import { useAuth } from '../lib/auth'
 import { useData } from '../lib/data'
 import { CANAIS, STATUS, TIPO_NOME, tiktokPerfil, vendeNoTikTokShop, type Interacao, type Lead, type LeadStatus } from '../lib/types'
 import { ESTILO_STATUS, corAvatar, iniciais } from '../lib/status'
@@ -37,6 +38,7 @@ export default function LeadDrawer({ lead, onClose }: { lead: Lead | null; onClo
 
 function Ficha({ lead, onClose }: { lead: Lead; onClose: () => void }) {
   const { segmentos, atualizarLead, favoritos, alternarFavorito, salvarNota } = useData()
+  const { podeEditar } = useAuth()
   const fav = favoritos.get(lead.id)
   const [minhaNota, setMinhaNota] = useState(fav?.nota ?? '')
   const [obs, setObs] = useState(lead.observacoes ?? '')
@@ -46,9 +48,10 @@ function Ficha({ lead, onClose }: { lead: Lead; onClose: () => void }) {
   const [nova, setNova] = useState({ canal: 'whatsapp', resumo: '' })
 
   useEffect(() => {
+    if (!podeEditar) return
     supabase.from('interacoes').select('*').eq('lead_id', lead.id).order('created_at', { ascending: false })
       .then(({ data }) => setInteracoes((data as Interacao[]) ?? []))
-  }, [lead.id])
+  }, [lead.id, podeEditar])
 
   async function salvar(campos: Partial<Lead>) {
     setSalvando(true)
@@ -99,12 +102,12 @@ function Ficha({ lead, onClose }: { lead: Lead; onClose: () => void }) {
             <div className={`tabular text-2xl font-semibold ${scoreTom(lead.score)}`}>{lead.score ?? '—'}</div>
             <div className="text-[10px] uppercase tracking-wider text-ink-muted">score</div>
           </div>
-          <button onClick={async () => setErro(await alternarFavorito(lead.id))} aria-pressed={!!fav}
+          {podeEditar && <button onClick={async () => setErro(await alternarFavorito(lead.id))} aria-pressed={!!fav}
             title={fav ? 'Remover dos salvos' : 'Salvar como interessante'}
             className={`btn-ghost gap-1.5 px-2 ${fav ? '!border-amber-400/50 text-amber-300' : ''}`}>
             <Star size={16} className={fav ? 'fill-amber-400 text-amber-400' : ''} />
             <span className="hidden text-xs sm:inline">{fav ? 'Salvo' : 'Salvar'}</span>
-          </button>
+          </button>}
           <button onClick={onClose} className="btn-ghost px-2"><X size={16} /></button>
         </div>
       </div>
@@ -115,7 +118,7 @@ function Ficha({ lead, onClose }: { lead: Lead; onClose: () => void }) {
         </a>
       )}
 
-      <section className="mt-6 space-y-2">
+      {podeEditar && <section className="mt-6 space-y-2">
         <div className="flex items-baseline justify-between gap-2">
           <h3 className="text-xs font-medium uppercase tracking-wider text-ink-muted">Minha anotação</h3>
           {fav && <span className="text-[11px] text-amber-300/80">salvo em {new Date(fav.updated_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</span>}
@@ -125,7 +128,7 @@ function Ficha({ lead, onClose }: { lead: Lead; onClose: () => void }) {
         {minhaNota.trim() !== (fav?.nota ?? '') && (
           <button className="btn-primary" onClick={guardarNota}>{fav ? 'Salvar anotação' : 'Salvar contato com anotação'}</button>
         )}
-      </section>
+      </section>}
 
       <section className="mt-6 space-y-2">
         <h3 className="text-xs font-medium uppercase tracking-wider text-ink-muted">Contato</h3>
@@ -150,7 +153,14 @@ function Ficha({ lead, onClose }: { lead: Lead; onClose: () => void }) {
 
       <Detalhes extras={lead.extras ?? {}} />
 
-      <section className="mt-6 space-y-2">
+      {!podeEditar && lead.observacoes && (
+        <section className="mt-6 space-y-2">
+          <h3 className="text-xs font-medium uppercase tracking-wider text-ink-muted">Observações</h3>
+          <p className="whitespace-pre-line text-sm text-ink-soft">{lead.observacoes}</p>
+        </section>
+      )}
+
+      {podeEditar && <section className="mt-6 space-y-2">
         <h3 className="text-xs font-medium uppercase tracking-wider text-ink-muted">Gestão</h3>
         <div className="flex flex-wrap gap-1.5">
           {STATUS.map((s) => {
@@ -173,9 +183,9 @@ function Ficha({ lead, onClose }: { lead: Lead; onClose: () => void }) {
           <button className="btn-primary" disabled={salvando} onClick={() => salvar({ observacoes: obs || null })}>Salvar observações</button>
         )}
         {erro && <p className="text-sm text-red-400">{erro}</p>}
-      </section>
+      </section>}
 
-      <section className="mt-6 space-y-3">
+      {podeEditar && <section className="mt-6 space-y-3">
         <h3 className="text-xs font-medium uppercase tracking-wider text-ink-muted">Histórico de contatos</h3>
         <div className="flex gap-2">
           <select className="input w-36" value={nova.canal} onChange={(e) => setNova({ ...nova, canal: e.target.value })}>
@@ -197,7 +207,7 @@ function Ficha({ lead, onClose }: { lead: Lead; onClose: () => void }) {
           ))}
           {!interacoes.length && <li className="text-sm text-ink-muted">Nenhum contato registrado.</li>}
         </ul>
-      </section>
+      </section>}
 
       <section className="mt-6 border-t border-white/10 pt-4 text-xs text-ink-muted">
         Origem: {lead.fonte === 'conhecimento_setorial' ? 'conhecimento do setor (verificar)' : lead.fonte}

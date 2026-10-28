@@ -97,9 +97,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
       () => supabase.from('favoritos').upsert({ user_id: userId, lead_id: leadId, nota: texto, updated_at: agora }, { onConflict: 'user_id,lead_id' }))
   }, [otimista, userId])
 
+  // recarrega ao entrar ou sair: a leitura pública não traz investidores nem salvos
   useEffect(() => {
     recarregar()
-  }, [recarregar])
+  }, [recarregar, userId])
 
   return (
     <DataContext.Provider value={{ leads, segmentos, carregando, erro, recarregar, atualizarLead, favoritos, alternarFavorito, salvarNota }}>

@@ -66,7 +66,8 @@ export default function Dashboard() {
     { nome: 'Leads', valor: k.total, icone: Users },
     { nome: 'Clientes', valor: k.clientes, icone: Building2 },
     { nome: 'Fornecedores', valor: k.fornecedores, icone: Truck },
-    { nome: 'Investidores', valor: k.investidores, icone: Landmark },
+    // sem login os investidores não vêm do banco: some o cartão em vez de mostrar zero
+    ...(k.investidores ? [{ nome: 'Investidores', valor: k.investidores, icone: Landmark }] : []),
     { nome: 'Com contato direto', valor: k.contato, icone: Contact, extra: k.total ? `${Math.round((k.contato / k.total) * 100)}%` : '' },
     { nome: 'Score médio', valor: k.scoreMedio, icone: Gauge },
   ]
@@ -78,7 +79,7 @@ export default function Dashboard() {
         <p className="mt-1 text-sm text-ink-muted">Base de prospecção da Garnet Cosméticos · foco em SP</p>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
+      <div className={`grid grid-cols-2 gap-3 md:grid-cols-3 ${kpis.length === 6 ? 'lg:grid-cols-6' : 'lg:grid-cols-5'}`}>
         {kpis.map((c, i) => (
           <motion.div key={c.nome}
             initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
@@ -100,7 +101,7 @@ export default function Dashboard() {
       <div className="grid gap-4 lg:grid-cols-5">
         <div className="lg:col-span-3">
           <ChartCard titulo="Leads por segmento" sub="Clique numa barra para ver os leads" delay={0.1}
-            legenda={<Legenda itens={[{ cor: SERIE.cliente, nome: 'Clientes' }, { cor: SERIE.fornecedor, nome: 'Fornecedores' }, { cor: SERIE.investidor, nome: 'Investidores' }]} />}>
+            legenda={<Legenda itens={[{ cor: SERIE.cliente, nome: 'Clientes' }, { cor: SERIE.fornecedor, nome: 'Fornecedores' }, ...(k.investidores ? [{ cor: SERIE.investidor, nome: 'Investidores' }] : [])]} />}>
             <ResponsiveContainer width="100%" height={porSegmento.length * 34 + 20}>
               <BarChart data={porSegmento} layout="vertical" margin={{ left: 8, right: 24 }} barCategoryGap={6}>
                 <CartesianGrid horizontal={false} stroke={GRADE} />

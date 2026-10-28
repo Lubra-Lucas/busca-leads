@@ -7,6 +7,7 @@ import FiltroPopover, { ListaOpcoes } from '../components/FiltroPopover'
 import LeadDrawer from '../components/LeadDrawer'
 import NichoFiltro from '../components/NichoFiltro'
 import StatusBadge from '../components/StatusBadge'
+import { useAuth } from '../lib/auth'
 import { useData } from '../lib/data'
 import { STATUS, TIPO_NOME, temContato, vendeNoTikTokShop, type Lead, type LeadTipo } from '../lib/types'
 import { FASES, FASE_CURTA, PONTO_FASE, corAvatar, faseDe, iniciais, type FaseId } from '../lib/status'
@@ -30,6 +31,7 @@ const TIPOS: { id: '' | LeadTipo; nome: string }[] = [
 
 export default function Leads() {
   const { leads, segmentos, favoritos, alternarFavorito, salvarNota } = useData()
+  const { podeEditar } = useAuth()
   const [notaAberta, setNotaAberta] = useState<string | null>(null)
   const [erroFav, setErroFav] = useState<string | null>(null)
   const [params, setParams] = useSearchParams()
@@ -180,15 +182,15 @@ export default function Leads() {
               f.tiktokShop ? 'border-garnet bg-garnet/15 text-ink' : 'border-white/10 bg-raised text-ink-muted hover:text-ink'}`}>
             <ShoppingBag size={14} /> TikTok Shop
           </button>
-          <button onClick={() => set('salvos', f.salvos ? '' : '1')} aria-pressed={f.salvos}
+          {podeEditar && <button onClick={() => set('salvos', f.salvos ? '' : '1')} aria-pressed={f.salvos}
             title="Leads que você marcou como interessantes"
             className={`flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm transition ${
               f.salvos ? 'border-amber-400/60 bg-amber-400/15 text-ink' : 'border-white/10 bg-raised text-ink-muted hover:text-ink'}`}>
             <Star size={14} className={f.salvos || totalSalvos ? 'fill-amber-400 text-amber-400' : ''} /> Salvos
             <span className="tabular text-xs opacity-60">{nf.format(totalSalvos)}</span>
-          </button>
+          </button>}
           <div className="flex max-w-full overflow-x-auto rounded-lg border border-white/10 bg-raised p-0.5">
-            {TIPOS.map((t) => (
+            {TIPOS.filter((t) => !t.id || totalTipo(t.id)).map((t) => (
               <button key={t.id} onClick={() => set('tipo', t.id)}
                 className={`relative whitespace-nowrap rounded-md px-3 py-1.5 text-sm transition ${f.tipo === t.id ? 'text-ink' : 'text-ink-muted hover:text-ink'}`}>
                 {f.tipo === t.id && (
@@ -325,12 +327,12 @@ export default function Leads() {
                     className="cursor-pointer border-b border-white/5 transition odd:bg-white/[0.015] hover:bg-white/[0.05]">
                     <td className={`${verSeguidores ? 'max-w-[6.5rem]' : 'max-w-[9.5rem]'} px-3 py-3 sm:max-w-[15rem] sm:px-4 lg:max-w-[22rem] xl:max-w-[26rem]`}>
                       <div className="flex items-center gap-2 sm:gap-3">
-                        <button onClick={(e) => { e.stopPropagation(); marcar(l.id) }}
+                        {podeEditar && <button onClick={(e) => { e.stopPropagation(); marcar(l.id) }}
                           title={fav ? 'Remover dos salvos' : 'Salvar como interessante'} aria-pressed={!!fav}
                           aria-label={fav ? 'Remover dos salvos' : 'Salvar como interessante'}
                           className="-m-1 shrink-0 rounded-md p-1 transition hover:bg-white/10">
                           <Star size={16} className={fav ? 'fill-amber-400 text-amber-400' : 'text-ink-muted hover:text-amber-300'} />
-                        </button>
+                        </button>}
                         <span style={corAvatar(l.nome)} aria-hidden
                           className="hidden h-8 sm:flex w-8 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold">
                           {iniciais(l.nome)}

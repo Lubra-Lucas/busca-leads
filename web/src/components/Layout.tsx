@@ -1,5 +1,5 @@
-import { NavLink, Outlet } from 'react-router-dom'
-import { LayoutDashboard, LogOut, RefreshCw, Search, Users } from 'lucide-react'
+import { Link, NavLink, Outlet } from 'react-router-dom'
+import { LayoutDashboard, LogIn, LogOut, RefreshCw, Search, Users } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import { useData } from '../lib/data'
@@ -35,10 +35,18 @@ export default function Layout() {
             <button onClick={recarregar} title="Atualizar dados" className="btn-ghost px-2.5">
               <RefreshCw size={15} className={carregando ? 'animate-spin' : ''} />
             </button>
-            <span className="hidden text-xs text-ink-muted md:inline">{session?.user.email}</span>
-            <button onClick={() => supabase.auth.signOut()} title="Sair" className="btn-ghost px-2.5">
-              <LogOut size={15} />
-            </button>
+            {session ? (
+              <>
+                <span className="hidden text-xs text-ink-muted md:inline">{session.user.email}</span>
+                <button onClick={() => supabase.auth.signOut()} title="Sair" className="btn-ghost px-2.5">
+                  <LogOut size={15} />
+                </button>
+              </>
+            ) : (
+              <Link to="/entrar" title="Entrar para editar" className="btn-ghost gap-1.5 px-2.5 text-xs">
+                <LogIn size={15} /><span className="hidden sm:inline">Entrar</span>
+              </Link>
+            )}
           </div>
         </div>
       </header>

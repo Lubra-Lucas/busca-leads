@@ -31,7 +31,10 @@ Sistema de prospecção da **Garnet Cosméticos**: fabricante terceirizada (priv
 - Branch de trabalho: **`claude/epic-turing-5qltxt`**. O GitHub Pages publica a partir dela
   (`.github/workflows/pages.yml`, dispara em push que mexe em `web/**`). Se a nova sessão trabalhar em outra branch,
   faça merge nesta (ou ajuste o `branches:` do workflow), senão o site não atualiza.
-- Site: https://lubra-lucas.github.io/busca-leads/ (login por e-mail/senha; qualquer conta criada tem acesso).
+- Site: https://lubra-lucas.github.io/busca-leads/ — desde 28/10/2026 **abre sem login, só leitura** (clientes e
+  fornecedores; investidores ficam ocultos). O botão "Entrar" no topo (rota `#/entrar`) libera edição, salvos,
+  anotações, histórico e investidores para usuários permitidos (`podeEditar` em `web/src/lib/auth.tsx`).
+  Leitura pública depende das policies de `supabase/migrations/20261028000000_leitura_publica.sql`.
 - Commits: mensagens em português, descritivas.
 
 ## Estrutura
