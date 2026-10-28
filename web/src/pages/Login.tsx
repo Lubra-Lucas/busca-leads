@@ -69,6 +69,7 @@ export default function Login() {
         >
           {modo === 'entrar' ? 'Primeiro acesso? Criar conta' : 'Já tenho conta. Entrar'}
         </button>
+        <a href="#/" className="mt-2 block text-sm text-ink-muted transition hover:text-ink">Voltar sem entrar</a>
       </motion.div>
     </div>
   )
